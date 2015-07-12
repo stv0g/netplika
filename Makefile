@@ -1,6 +1,6 @@
 TARGET = netem
 
-OBJS = main.o probe.o
+OBJS = main.o probe.o ts.o tc.o
 
 CC = gcc
 CFLAGS = -g -lrt -std=c99 -Wall
