@@ -1,20 +1,26 @@
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <unistd.h>
+#include <signal.h>
+#include <ctype.h>
+#include <string.h>
+
 #include <errno.h>
 #include <error.h>
-
-#include <signal.h>
-#include <unistd.h>
 
 #define VERSION "0.1"
 
 int running = 1;
 
+int probe();
+
 void quit(int sig, siginfo_t *si, void *ptr)
 {
 	printf("Goodbye!\n");
-	running = 0;
+	exit(0);
 }
 
 int main(int argc, char *argv[])

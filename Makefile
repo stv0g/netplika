@@ -3,7 +3,7 @@ TARGET = netem
 OBJS = main.o probe.o
 
 CC = gcc
-CFLAGS = -g -lrt
+CFLAGS = -g -lrt -std=c99 -Wall
 
 all: $(TARGET) Makefile
 	
