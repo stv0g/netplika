@@ -133,9 +133,11 @@ int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stat
 		counters[i] = rtnl_tc_get_stat(tc, i);
 			
 	nl_cache_free(cache);
+
+	return 0;
 }
 
 int tc_print_stats(struct tc_stats *stats)
 {
-	
+	return 0;
 }
