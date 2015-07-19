@@ -1,6 +1,17 @@
-#include <libnl3/netlink/route/qdisc/netem.h>
-#include <libnl3/netlink/route/qdisc/prio.h>
-#include <libnl3/netlink/route/cls/fw.h>
+/** Trafic Controller (TC) related functions
+ *
+ * @author Steffen Vogel <post@steffenvogel.de>
+ * @copyright 2014-2015, Steffen Vogel 
+ * @license GPLv3
+ *********************************************************************************/
+
+#include <netlink/route/qdisc/netem.h>
+#include <netlink/route/qdisc/prio.h>
+#include <netlink/route/cls/fw.h>
+#include <netlink/fib_lookup/request.h>
+#include <netlink/fib_lookup/lookup.h>
+
+#include <linux/if_ether.h>
 
 #include "tc.h"
 
@@ -16,103 +27,115 @@ struct rtnl_link * tc_get_link(struct nl_sock *sock, const char *dev)
 	return link;
 }
 
-int tc_init_prio(struct nl_sock *sock)
+int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 {
-	q = rtnl_qdisc_alloc();
+	/* This is the default priomap +1 for every entry.
+	 * The first band (value == 0) with the highest priority is reserved for the netem traffic */
+	uint8_t map[] = { 2, 3, 3, 3, 2, 3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2 };
 
-	rtnl_tc_set_ifindex(TC_CAST(q), if_index);
+	struct rtnl_qdisc *q = rtnl_qdisc_alloc();
+
+	rtnl_tc_set_link(TC_CAST(q), link);
 	rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
 	rtnl_tc_set_handle(TC_CAST(q), TC_HANDLE(1, 0));
 	rtnl_tc_set_kind(TC_CAST(q), "prio"); 
 
-	rtnl_qdisc_prio_set_bands (struct rtnl_qdisc *qdisc, int bands);
-	rtnl_qdisc_prio_set_priomap (struct rtnl_qdisc *qdisc, uint8_t priomap[], int len);
+	rtnl_qdisc_prio_set_bands(q, 3+1);
+	rtnl_qdisc_prio_set_priomap(q, map, sizeof(map) / sizeof(map[0]));
 
-	rtnl_qdisc_add(sock, q, NLM_F_CREATE);
-	rtnl_qdisc_put(q);
+	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
+
+	*tc = TC_CAST(q);
+	
+	return ret;
 }
 
-int tc_init_netem(struct nl_sock *sock, struct tc_netem *ne)
+int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc, struct tc_netem *ne)
 {
-	q = rtnl_qdisc_alloc();
+	struct rtnl_qdisc *q;
+	
+	if (*tc == NULL) {
+		q = rtnl_qdisc_alloc();
 
-	rtnl_tc_set_ifindex(TC_CAST(q), if_index);
-	rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
-	rtnl_tc_set_handle(TC_CAST(q), TC_HANDLE(1, 0));
-	rtnl_tc_set_kind(TC_CAST(q), "netem"); 
+		rtnl_tc_set_link(TC_CAST(q), link);
+		rtnl_tc_set_parent(TC_CAST(q), TC_HANDLE(1, 1));
+		rtnl_tc_set_handle(TC_CAST(q), TC_HANDLE(2, 0));
+		rtnl_tc_set_kind(TC_CAST(q), "netem");
+	}
+	else
+		q = (struct rtnl_qdisc *) (*tc);
 
-	rtnl_netem_set_gap(q, int);
-	rtnl_netem_set_reorder_probability(q, int);
-	rtnl_netem_set_reorder_correlation(q, int);
-	rtnl_netem_set_corruption_probability(q, int);
-	rtnl_netem_set_corruption_correlation(q, int);
-	rtnl_netem_set_loss(q, int);
-	rtnl_netem_set_loss_correlation(q, int);
-	rtnl_netem_set_duplicate(q, int);
-	rtnl_netem_set_duplicate_correlation(q, int);
-	rtnl_netem_set_delay(q, int);
-	rtnl_netem_set_jitter(q, int);
-	rtnl_netem_set_delay_correlation(q, int);
-	rtnl_netem_set_delay_distribution(q, const char *);
+	rtnl_netem_set_limit(q, ne->limit);
+	rtnl_netem_set_gap(q, ne->gap);
+	rtnl_netem_set_reorder_probability(q, ne->reorder_prob);
+	rtnl_netem_set_reorder_correlation(q, ne->reorder_corr);
+	rtnl_netem_set_corruption_probability(q, ne->corruption_prob);
+	rtnl_netem_set_corruption_correlation(q, ne->corruption_corr);
+	rtnl_netem_set_loss(q, ne->loss_prob);
+	rtnl_netem_set_loss_correlation(q, ne->loss_corr);
+	rtnl_netem_set_duplicate(q, ne->duplication_prob);
+	rtnl_netem_set_duplicate_correlation(q, ne->duplication_corr);
+	rtnl_netem_set_delay(q, ne->delay);
+	rtnl_netem_set_jitter(q, ne->jitter);
+	rtnl_netem_set_delay_correlation(q, ne->delay_corr);
+	//rtnl_netem_set_delay_distribution(q, ne->delay_distr);
 
-	rtnl_qdisc_add(sock, q, NLM_F_CREATE);
-	rtnl_qdisc_put(q);
+	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
+
+	*tc = TC_CAST(q);
+	
+	return ret;
 }
 
-int tc_init_classifier(struct nl_sock *sock, int mark)
+int tc_classifier(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc, int mark, int mask)
 {
 	struct rtnl_cls *c = rtnl_cls_alloc();
 
-	rtnl_tc_set_link(TC_CAST(c), if_index);
-	rtnl_tc_set_parent(TC_CAST(c), TC_H_ROOT);
-	rtnl_tc_set_handle(TC_CAST(c), TC_HANDLE(1, 0));
-	rtnl_tc_set_kind(TC_CAST(c), "netem"); 
+	rtnl_tc_set_link(TC_CAST(c), link);
+	rtnl_tc_set_handle(TC_CAST(c), mark);
+	rtnl_tc_set_kind(TC_CAST(c), "fw"); 
 
-	rtnl_fw_set_classid(c, uint32_t classid);
-	rtnl_fw_set_mask(c, uint32_t mask);
-
-	rtnl_cls_add(sock, cls, int flags);
-	rtnl_cls_put(cls);
-}
-
-struct nl_sock * tc_init(int mark)
-{
-	struct nl_sock *sock;
-	struct rtnl_link *link;
-	struct rtnl_qdisc *q;
-
-	/* Create connection to netlink */
-	sock = nl_socket_alloc();
-	nl_connect(sock, NETLINK_ROUTE);
-
-	if (tc_init_prio(sock))
-		error(0, -1, "Failed to setup TC: prio qdisc");
-	if (tc_init_classifier(sock, mark))
-		error(0, -1, "Failed to setup TC: fw filter");
+	rtnl_cls_set_protocol(c, ETH_P_ALL);
 	
-	/* Get interface index */
-	int ifindex = tc_get_ifindex;
+	rtnl_fw_set_classid(c, TC_HANDLE(1, 1));
+	rtnl_fw_set_mask(c, mask);
 
-	/* Setup classifier */
-	rtnl_fw_set_classid (struct rtnl_cls *cls, uint32_t classid);
-	rtnl_fw_set_mask (struct rtnl_cls *cls, uint32_t mask);
-	rtnl_cls_add(struct nl_sock *sk, struct rtnl_cls *cls, int flags);
+	int ret = rtnl_cls_add(sock, c, NLM_F_CREATE);
 
-	return sock;
+	*tc = TC_CAST(c);
+	
+	return ret;
 }
 
-int tc_reset(struct nl_sock *)
+int tc_reset(struct nl_sock *sock, struct rtnl_link *link)
 {
-	struct rtnl_qdisc *q;
+	struct rtnl_qdisc *q = rtnl_qdisc_alloc();
 
 	/* Restore default qdisc by deleting the root qdisc (see tc-pfifo_fast(8)) */
-	q = rtnl_qdisc_alloc();
 	rtnl_tc_set_link(TC_CAST(q), link);
-	rtnl_qdisc_delete(sock, q); 
+	rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
+	
+	int ret = rtnl_qdisc_delete(sock, q); 
 	rtnl_qdisc_put(q);
-
-	/* Shutdown */
-	nl_close(sock);
-	nl_socket_free(sock);
+	
+	return ret;
 }
 
+int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stats)
+{
+	uint64_t *counters = (uint64_t *) stats;
+	
+	struct nl_cache *cache;
+	
+	rtnl_qdisc_alloc_cache(sock, &cache);
+	
+	for (int i = 0; i <= RTNL_TC_STATS_MAX; i++)
+		counters[i] = rtnl_tc_get_stat(tc, i);
+			
+	nl_cache_free(cache);
+}
+
+int tc_print_stats(struct tc_stats *stats)
+{
+	
+}

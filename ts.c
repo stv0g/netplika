@@ -1,11 +1,22 @@
+/** Hardware / Kernelspace Timestamping of network packets.
+ *
+ * @author Steffen Vogel <post@steffenvogel.de>
+ * @copyright 2014-2015, Steffen Vogel 
+ * @license GPLv3
+ *********************************************************************************/
+#define _POSIX_C_SOURCE 199309L
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+#include <error.h>
 
-#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/poll.h>
 
 #include <netinet/in.h>
 #include <net/if.h>
@@ -14,15 +25,37 @@
 #include <linux/errqueue.h>
 #include <linux/net_tstamp.h>
 
-#define SIOCSHWTSTAMP   0x89b0
-#define SIOCGHWTSTAMP   0x89b1
+#include "ts.h"
+
+#define SIOCSHWTSTAMP	0x89b0
+#define SIOCGHWTSTAMP	0x89b1
 
 ssize_t ts_sendmsg(int sd, const struct msghdr *msg, int flags, struct timespec *ts)
 {
-	return sendmsg(sd, msg, flags);
+	/* Waiting for ACK or RST */
+	struct pollfd pfd = {
+		.fd = sd,
+		.events = POLLIN
+	};
+	
+	clock_gettime(CLOCK_REALTIME, ts); // Fallback if now kernelspace TS are available
+	ssize_t ret = sendmsg(sd, msg, flags);
+	return ret; // TODO
+	
+	/* Wait for TS */
+retry:	if (poll(&pfd, 1, 10000) < 0)
+		error(-1, errno, "Failed poll");
+	if (!(pfd.revents & POLLERR))
+		goto retry;
+
+	struct msghdr msg2 = { 0 };
+	if (ts_recvmsg(sd, &msg2, MSG_ERRQUEUE, ts) < 0)
+		error(-1, errno, "Failed to receive TS");
+	
+	return ret;
 }
 
-ssize_t ts_recvmsg(int sd, struct msghdr *msgh, int flags, struct timespec *ts, int *key, int *id)
+ssize_t ts_recvmsg(int sd, struct msghdr *msgh, int flags, struct timespec *ts)
 {
 	char buf[1024];
 	msgh->msg_control = &buf;
@@ -32,8 +65,11 @@ ssize_t ts_recvmsg(int sd, struct msghdr *msgh, int flags, struct timespec *ts, 
 	struct sock_extended_err *serr = NULL;
 	struct timespec *tss = NULL;
 
-	int ret = recvmsg(sd, msgh, flags);
+	ssize_t ret = recvmsg(sd, msgh, flags);
 	if (ret >= 0) {
+		clock_gettime(CLOCK_REALTIME, ts); // Fallback if now kernelspace TS are available
+		return ret; // TODO
+		
 		for (cmsg = CMSG_FIRSTHDR(msgh); cmsg != NULL; cmsg = CMSG_NXTHDR(msgh, cmsg)) {
 			if       (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMPING)
 				tss = (struct timespec *) CMSG_DATA(cmsg);
@@ -42,24 +78,14 @@ ssize_t ts_recvmsg(int sd, struct msghdr *msgh, int flags, struct timespec *ts, 
 				serr = (struct sock_extended_err *) CMSG_DATA(cmsg);
 		}
 	
-		if (!tss)
-			return -2;
+		if (tss)
+			*ts = tss[0];
 	
-		for (int i = 0; i < 3; i++)
-			ts[i] = tss[i];
-	
-		if (serr) {
-			*key = serr->ee_info;
-			*id  = serr->ee_data;
-		}
+		if (serr)
+			printf("Debug: key = %u, id = %u\n", serr->ee_info, serr->ee_data);
 	}
 
 	return ret;
-}
-
-void ts_print(struct timespec *ts)
-{
-	printf("%lld.%.9ld\n", (long long) ts->tv_sec, ts->tv_nsec);
 }
 
 int ts_enable_sd(int sd)
