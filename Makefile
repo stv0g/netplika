@@ -1,4 +1,4 @@
-TARGETS = netem mark
+TARGETS = netem mark.so
 
 OBJS = main.o probe.o emulate.o timing.o hist.o utils.o ts.o tc.o tcp.o
 
@@ -15,12 +15,12 @@ all: $(TARGETS) Makefile
 netem: $(OBJS)
 	$(CC) $(LDLIBS) -o $@ $^
 
-mark: mark.c
+mark.so: mark.c
 	$(CC) -g -fPIC -c -o mark.o mark.c
 	$(CC) -shared -o mark.so mark.o -ldl
 	
 clean:
-	rm -f $(TARGET)
+	rm -f $(TARGETS)
 	rm -f *.o *~
 	make -C libnl clean
 	
