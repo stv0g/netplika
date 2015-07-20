@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#define DEF_MARK 0xCD
+
 typedef int (*socket_t)(int domain, int type, int protocol);
 
 static socket_t _socket;
@@ -36,10 +38,19 @@ int socket(int domain, int type, int protocol)
 
 	if (sd >= 0) {
 		if (domain == AF_INET || domain == AF_INET6) {
-			char * env = getenv("MARK");
-			int mark = env ? atoi(env) : 0xCD;
+			unsigned mark;
+			char *endptr, *env = getenv("MARK");
+
+			if (env != NULL) {
+				mark = strtoul(env, &endptr, 0);
+				
+				if (env == endptr) /* skip if invalid mark given */
+					return sd;
+			}
+			else
+				mark = DEF_MARK;
 			
-			printf("Setting SO_MARK for fd=%u to %#x\n", sd, mark);
+			printf("mark: setting SO_MARK for fd=%u to %#x\n", sd, mark);
 		
 			setsockopt(sd, SOL_SOCKET, SO_MARK, &mark, sizeof(mark));
 		}
