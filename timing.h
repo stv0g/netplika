@@ -5,17 +5,11 @@
  * @license GPLv3
  *********************************************************************************/
 
-#ifndef _TIME_H_
-#define _TIME_H_
+#ifndef _TIMING_H_
+#define _TIMING_H_
 
-#define _POSIX_C_SOURCE 199309L
-
-#include <unistd.h>
 #include <stdio.h>
 #include <stdint.h>
-	
-#include <time.h>
-#include <sys/timerfd.h>
 
 /** Wait until timer elapsed
  *

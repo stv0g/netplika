@@ -26,6 +26,7 @@ int running = 1;
 /* Default settings */
 struct config cfg = {
 	.limit = 100,
+	.rate = 1,
 	.mark = 0xCD,
 	.mask = 0xFFFFFFFF,
 	.dev = "eth0"
@@ -45,15 +46,14 @@ int main(int argc, char *argv[])
 	if (argc < 2) {
 		printf("usage: %s CMD [OPTIONS]\n", argv[0]);
 		printf("  CMD     can be one of:\n");
-		printf("    live          \n");
-		printf("    probe         \n");
-		printf("    emulate       \n");		
+		printf("    probe IP PORT\n");
+		printf("    emulate\n");		
 		printf("\n");
 		printf("  OPTIONS:\n");
 		printf("    -m --mark N      apply emulation only to packet buffers with mark N\n");
 		printf("    -M --mask N      an optional mask for the fw mark\n");
 		printf("    -i --interval N  update the emulation parameters every N seconds\n");
-		printf("    -r --rate        the packet rate used for measurements\n");
+		printf("    -r --rate        rate limit used for measurements and updates of network emulation\n");
 		printf("    -l --limit       how many probes should we sent\n");
 		printf("    -d --dev         network interface\n");
 		
@@ -82,7 +82,7 @@ int main(int argc, char *argv[])
 	
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:")) != -1) {
+	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:")) != -1) {
 		switch (c) {
 			case 'm':
 				cfg.mark = strtoul(optarg, &endptr, 0);
@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
 				cfg.interval = strtoul(optarg, &endptr, 10);
 				goto check;
 			case 'r':
-				cfg.rate = strtoul(optarg, &endptr, 10);
+				cfg.rate = strtof(optarg, &endptr);
 				goto check;
 			case 'l':
 				cfg.limit = strtoul(optarg, &endptr, 10);

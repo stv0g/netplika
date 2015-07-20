@@ -14,9 +14,8 @@ struct config {
 	int mark;
 	int mask;
 	int interval;
-	int rate;
 	int limit;
-	
+	double rate;
 	char *dev;
 };
 
