@@ -36,7 +36,7 @@
 #include "utils.h"
 #include "hist.h"
 
-int probe_tcp(int sd, struct timespec *ts)
+int probe_tcp(int sd, unsigned short dport, struct timespec *ts)
 {
 	struct timespec ts_syn, ts_ack;
 	
@@ -55,12 +55,14 @@ int probe_tcp(int sd, struct timespec *ts)
 	memset(&thdr, 0, sizeof(thdr));
 	memset(&msgh, 0, sizeof(msgh));
 	
-	unsigned seq = (unsigned) rand();
+	/* Randomize sequence number and source port */
+	unsigned int seq = (unsigned) rand();
+	unsigned short sport = (rand() + 1024) & 0xFFFF;
 	
 	thdr.syn = 1;
 	thdr.seq = htonl(seq);
-	thdr.source = htons(SRC_PORT); 
-	thdr.dest = htons(DEST_PORT);
+	thdr.source = htons(sport); 
+	thdr.dest = htons(dport);
 	thdr.doff = 5;
 	thdr.check = tcp_csum((unsigned short *) &thdr, sizeof(thdr));
 	
@@ -85,7 +87,7 @@ retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
 	//	len, thdr.syn, thdr.ack, thdr.rst, ntohl(thdr.seq), ntohl(thdr.ack_seq), ntohs(thdr.source), ntohs(thdr.dest));
 	
 	/* Check response */
-	if (thdr.source != htons(DEST_PORT) || thdr.dest != htons(SRC_PORT)) {
+	if (thdr.source != htons(dport) || thdr.dest != htons(sport)) {
 		printf("Skipping invalid ports\n");
 		goto retry;
 	}
@@ -108,15 +110,17 @@ int probe(int argc, char *argv[])
 	/* Parse address */
 	struct nl_addr *addr;
 	struct sockaddr_in sin;
-	char buf[128];
 	
-	if (argc != 1)
-		error(-1, 0, "usage: netem probe IP-ADDRESS");
+	/* Parse args */
+	if (argc != 2)
+		error(-1, 0, "usage: netem probe IP PORT");
 	
 	if (nl_addr_parse(argv[0], AF_UNSPEC, &addr))
 		error(-1, 0, "Failed to parse address: %s", argv[0]);
 	
-	printf("Start probing: %s\n", nl_addr2str(addr, buf, sizeof(buf)));
+	unsigned short dport = atoi(argv[1]);
+	if (!dport)
+		error(-1, 0, "Failed to parse port: %s", argv[1]);
 	
 	socklen_t sinlen = sizeof(sin);
 	if (nl_addr_fill_sockaddr(addr, (struct sockaddr *) &sin, &sinlen))
