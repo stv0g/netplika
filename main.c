@@ -44,28 +44,31 @@ void quit(int sig, siginfo_t *si, void *ptr)
 int main(int argc, char *argv[])
 {	
 	if (argc < 2) {
-		printf("usage: %s CMD [OPTIONS]\n", argv[0]);
-		printf("  CMD     can be one of:\n");
-		printf("    probe IP PORT\n");
-		printf("    emulate\n");		
-		printf("\n");
-		printf("  OPTIONS:\n");
-		printf("    -m --mark N      apply emulation only to packet buffers with mark N\n");
-		printf("    -M --mask N      an optional mask for the fw mark\n");
-		printf("    -i --interval N  update the emulation parameters every N seconds\n");
-		printf("    -r --rate        rate limit used for measurements and updates of network emulation\n");
-		printf("    -l --limit       how many probes should we sent\n");
-		printf("    -d --dev         network interface\n");
-		
-		printf("\n");
-		printf("netem util %s (built on %s %s)\n",
-			VERSION, __DATE__, __TIME__);
-		printf(" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n");
+		printf( "usage: %s CMD [OPTIONS]\n"
+			"  CMD     can be one of:\n\n"
+			"    probe IP PORT    Start TCP SYN+ACK RTT probes and write measurements data to STDOUT\n"
+			"    live             Read measurement data from STDIN and configure Kernel (tc-netem(8)) on-the-fly.\n"
+			"                        This mode only uses the mean and standard deviation of of the previous samples\n"
+			"                        to configure the netem qdisc. This can be used to interactively replicate a network link.\n"
+			"\n"
+			"    dist generate    Read measurement data from STDIN and write distribution file to STDOUT (see /usr/lib/tc/*.dist)\n"
+			"    dist load        Read measurement data from STDIN and configure Kernel (tc-netem(8))\n"
+			"                        These modes generate an inverse cumulated probability function (CDF) from the previously\n"
+			"                        recorded measurements. This iCDF can either be used by tc(8) or 'netem table'\n"
+			"\n"
+			"  OPTIONS:\n\n"
+			"    -m --mark N      apply emulation only to packet buffers with mark N\n"
+			"    -M --mask N      an optional mask for the fw mark\n"
+			"    -i --interval N  update the emulation parameters every N seconds\n"
+			"    -r --rate        rate limit used for measurements and updates of network emulation\n"
+			"    -l --limit       how many probes should we sent\n"
+			"    -d --dev         network interface\n"
+			"\n"
+			"netem util %s (built on %s %s)\n"
+			" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
 
 		exit(EXIT_FAILURE);
-	}
-	
-	char *cmd = argv[1];
+	}	
 
 	/* Setup signals */
 	struct sigaction sa_quit = {
@@ -121,11 +124,15 @@ check:
 		if (optarg == endptr)
 			error(-1, 0, "Failed to parse parse option argument '-%c %s'", c, optarg);
 	}
+	
+	char *cmd = argv[1];
 
-	if (!strcmp(cmd, "probe"))
+	if      (!strcmp(cmd, "probe"))
 		return probe(argc-optind-1, argv+optind+1);
-	else if (!strcmp(cmd, "emulate"))
+	else if (!strcmp(cmd, "live"))
 		return emulate(argc-optind-1, argv+optind+1);
+	else if (!strcmp(cmd, "dist"))
+		return dist(argc-optind-1, argv+optind+1);
 	else
 		error(-1, 0, "Unknown command: %s", cmd);
 	

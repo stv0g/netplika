@@ -9,6 +9,14 @@
  * @license GPLv3
  *********************************************************************************/
 
+#include <stdio.h>
+#include <error.h>
+#include <string.h>
+
+#include <netlink-private/types.h>
+#include <netlink/route/qdisc.h>
+#include <netlink/route/tc.h>
+
 /**
  * Set the delay distribution. Latency/jitter must be set before applying.
  * @arg qdisc Netem qdisc.
@@ -100,21 +108,25 @@ static short * inverttable(int *table, int inversesize, int tablesize, int cumul
 	short *inverse;
 	double findex, fvalue;
 
-	inverse = (short *)malloc(inversesize*sizeof(short));
-	for (i=0; i < inversesize; ++i) {
+	inverse = (short *) malloc(inversesize * sizeof(short));
+	for (i=0; i < inversesize; ++i)
 		inverse[i] = MINSHORT;
-	}
+
 	for (i=0; i < tablesize; ++i) {
 		findex = ((double)i/(double)DISTTABLEGRANULARITY) - DISTTABLEDOMAIN;
 		fvalue = (double)table[i]/(double)cumulative;
 		inverseindex = (int)rint(fvalue*inversesize);
 		inversevalue = (int)rint(findex*TABLEFACTOR);
-		if (inversevalue <= MINSHORT) inversevalue = MINSHORT+1;
-		if (inversevalue > MAXSHORT) inversevalue = MAXSHORT;
+		
+		if (inversevalue <= MINSHORT)
+			inversevalue = MINSHORT+1;
+		if (inversevalue > MAXSHORT)
+			inversevalue = MAXSHORT;
+		
 		inverse[inverseindex] = inversevalue;
 	}
-	return inverse;
 
+	return inverse;
 }
 
 /* Run simple linear interpolation over the table to fill in missing entries */
@@ -123,19 +135,45 @@ static void interpolatetable(short *table, int limit)
 	int i, j, last, lasti = -1;
 
 	last = MINSHORT;
+
 	for (i=0; i < limit; ++i) {
 		if (table[i] == MINSHORT) {
-			for (j=i; j < limit; ++j)
+			for (j=i; j < limit; ++j) {
 				if (table[j] != MINSHORT)
 					break;
-			if (j < limit) {
-				table[i] = last + (i-lasti)*(table[j]-last)/(j-lasti);
-			} else {
-				table[i] = last + (i-lasti)*(MAXSHORT-last)/(limit-lasti);
 			}
-		} else {
+
+			if (j < limit)
+				table[i] = last + (i-lasti)*(table[j]-last)/(j-lasti);
+			else
+				table[i] = last + (i-lasti)*(MAXSHORT-last)/(limit-lasti);
+		}
+		else {
 			last = table[i];
 			lasti = i;
 		}
 	}
+}
+
+int dist_generate(int argc, char *argv[])
+{
+	return 0;
+}
+
+int dist_load(int argc, char *argv[])
+{
+	return 0;
+}
+
+int dist(int argc, char *argv[])
+{
+	char *subcmd = argv[0];
+
+	if (argc != 1)
+		error(-1, 0, "Missing sub-command");
+	
+	if      (!strcmp(subcmd, "generate"))
+		return dist_generate(argc-1, argv+1);
+	else if (!strcmp(subcmd, "load"))
+		return dist_load(argc-1, argv+1);
 }

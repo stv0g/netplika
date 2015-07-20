@@ -1,12 +1,14 @@
 TARGETS = netem mark.so
 
-OBJS = main.o probe.o emulate.o timing.o hist.o utils.o ts.o tc.o tcp.o
+OBJS = main.o probe.o emulate.o timing.o hist.o utils.o ts.o tc.o tcp.o dist.o
 
 CC      = gcc
 
 CFLAGS  = -g -lrt -std=c99 -Wall
+
 CFLAGS += -I/usr/local/include/libnl3
 CFLAGS += -I/usr/include/libnl3
+CFLAGS += -I./libnl/include
 
 LDLIBS = -lnl-3 -lnl-route-3 -lm
 
@@ -22,9 +24,5 @@ mark.so: mark.c
 clean:
 	rm -f $(TARGETS)
 	rm -f *.o *~
-	make -C libnl clean
-	
-libnl:
-	make -C libnl
 
 .PHONY: all clean libnl
