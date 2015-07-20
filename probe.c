@@ -20,6 +20,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/poll.h>
+#include <sys/timerfd.h>
 
 #include <netinet/in.h>
 #include <net/if.h>
@@ -148,25 +149,54 @@ int probe(int argc, char *argv[])
 	struct hist hist;
 	hist_create(&hist, 0, 0, 1);
 	
-	while (hist.total < cfg.limit) {		
-		probe_tcp(sd, &ts);
+	/* Start timer */
+	struct itimerspec its = {
+		.it_interval = time_from_double(1 / cfg.rate),
+		.it_value = { 1, 0 }
+	};
+
+	int tfd = timerfd_create(CLOCK_REALTIME, 0);
+	if (tfd < 0)
+		error(-1, errno, "Failed to create timer");
+
+	if (timerfd_settime(tfd, 0, &its, NULL))
+		error(-1, errno, "Failed to start timer");
+	
+	unsigned run = 0;
+	while (cfg.limit && run < cfg.limit) {		
+		probe_tcp(sd, dport, &ts);
 
 		double rtt = time_to_double(&ts);
 		hist_put(&hist, rtt);
 		
-		printf("n=%u, rtt=%f, min=%f, max=%f, avg=%f, stddev=%f\n",
-			hist.total, rtt, hist.lowest, hist.highest, hist_mean(&hist), hist_stddev(&hist));
+		//printf("n=%u, rtt=%f, min=%f, max=%f, avg=%f, stddev=%f\n",
+		//	hist.total, rtt, hist.lowest, hist.highest, hist_mean(&hist), hist_stddev(&hist));
 		
 		/* Warmup: adjust histogram after rough estimation of RTT */
-		if (hist.total == 20 && hist.high == 0) {
+		if (run == 20) {
 			double span = hist.highest - hist.lowest;
 			hist_destroy(&hist);
-			hist_create(&hist, MAX(0, hist.lowest - span * 0.1), hist.highest + span * 0.2, 1e-3);
+			hist_create(&hist, MAX(0, hist.lowest - span * 0.1), hist.highest + span * 0.2, span / 20);
 			printf("Created new histogram: high=%f, low=%f, buckets=%u\n",
 				hist.high, hist.low, hist.length);
+
+			/* Print header for output */
+			time_t t = time(NULL);
+			struct tm *tm = localtime(&t);
+			char addrs[32], date[32];
+
+			nl_addr2str(addr, addrs, sizeof(addrs));
+			strftime(date, sizeof(date), "%a, %d %b %Y %T %z", tm);
+			
+			printf("# Probing: %s on port %u\n", addrs, dport);
+			printf("# Started: %s\n", date);
+			printf("# RTT  mu sigma (units in S)\n");
 		}
+		//else if (run > 20)
+			printf("%f %f %f\n", rtt, hist_mean(&hist), hist_stddev(&hist));
 		
-		//usleep(250 * 1e3); // 250 ms
+		timerfd_wait(tfd);
+		run++;
 	}
 	
 	hist_print(&hist);
