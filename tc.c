@@ -34,7 +34,7 @@ int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 {
 	/* This is the default priomap +1 for every entry.
 	 * The first band (value == 0) with the highest priority is reserved for the netem traffic */
-	uint8_t map[] = { 2, 3, 3, 3, 2, 3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2 };
+	uint8_t map[] = { 2, 3, 3, 3, 2, 3, 1, 1, 2, 2, 2, 2, 2, 2, 2, 0 };
 
 	struct rtnl_qdisc *q = rtnl_qdisc_alloc();
 
@@ -44,7 +44,7 @@ int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 	rtnl_tc_set_kind(TC_CAST(q), "prio"); 
 
 	rtnl_qdisc_prio_set_bands(q, 3+1);
-	rtnl_qdisc_prio_set_priomap(q, map, sizeof(map) / sizeof(map[0]));
+	rtnl_qdisc_prio_set_priomap(q, map, 7);
 
 	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
 
