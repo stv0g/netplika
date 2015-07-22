@@ -1,6 +1,6 @@
 TARGETS = netem mark.so
 
-OBJS = main.o probe.o emulate.o timing.o hist.o utils.o ts.o tc.o tcp.o dist.o
+OBJS = main.o probe.o emulate.o timing.o hist.o utils.o ts.o tc.o tcp.o dist.o dist-maketable.o
 
 CC      = gcc
 
@@ -8,7 +8,6 @@ CFLAGS  = -g -lrt -std=c99 -Wall
 
 CFLAGS += -I/usr/local/include/libnl3
 CFLAGS += -I/usr/include/libnl3
-CFLAGS += -I./libnl/include
 
 LDLIBS = -lnl-3 -lnl-route-3 -lm
 

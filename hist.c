@@ -99,29 +99,29 @@ double hist_stddev(struct hist *h)
 	return sqrt(hist_var(h));
 }
 
-void hist_print(struct hist *h)
+void hist_print(struct hist *h, FILE *f)
 {
-	printf("Total: %u values\n", h->total);
-	printf("Highest value: %f\n", h->highest);
-	printf("Lowest  value: %f\n", h->lowest);
-	printf("Mean: %f\n", hist_mean(h));
-	printf("Variance: %f\n", hist_var(h));
-	printf("Standard derivation: %f\n", hist_stddev(h));
+	fprintf(f, "Total: %u values\n", h->total);
+	fprintf(f, "Highest value: %f\n", h->highest);
+	fprintf(f, "Lowest  value: %f\n", h->lowest);
+	fprintf(f, "Mean: %f\n", hist_mean(h));
+	fprintf(f, "Variance: %f\n", hist_var(h));
+	fprintf(f, "Standard derivation: %f\n", hist_stddev(h));
 	if (h->higher > 0)
-		printf("Missed:  %u values above %f\n", h->higher, h->high);
+		fprintf(f, "Missed:  %u values above %f\n", h->higher, h->high);
 	if (h->lower > 0)
-		printf("Missed:  %u values below %f\n", h->lower,  h->low);
+		fprintf(f, "Missed:  %u values below %f\n", h->lower,  h->low);
 	
 	if (h->total - h->higher - h->lower > 0) {
-		hist_plot(h);
-		
 		char buf[(h->length + 1) * 8];
 		hist_dump(h, buf, sizeof(buf));
-		printf(buf);
+		fprintf(f, "Matlab data: %s\n", buf);
+
+		hist_plot(h, f);
 	}
 }
 
-void hist_plot(struct hist *h)
+void hist_plot(struct hist *h, FILE *f)
 {
 	char buf[HIST_HEIGHT];
 	memset(buf, '#', sizeof(buf));
@@ -135,13 +135,13 @@ void hist_plot(struct hist *h)
 	}
 	
 	/* Print plot */
-	printf("%3s | %9s | %5s | %s\n", "#", "Value", "Occur", "Plot");
-	printf("--------------------------------------------------------------------------------\n");
+	fprintf(f, "%3s | %9s | %5s | %s\n", "#", "Value", "Occur", "Plot");
+	fprintf(f, "--------------------------------------------------------------------------------\n");
 
 	for (int i = 0; i < h->length; i++) {
 		int bar = HIST_HEIGHT * ((double) h->data[i] / max);
 		
-		printf("%3u | %+5.2e | "     "%5u"  " | %.*s\n", i, VAL(h, i), h->data[i], bar, buf);
+		fprintf(f, "%3u | %+5.2e | "     "%5u"  " | %.*s\n", i, VAL(h, i), h->data[i], bar, buf);
 	}
 }
 

@@ -11,6 +11,8 @@
 #include <stdio.h>
 #include <stdint.h>
 
+int timerfd_init(double rate);
+
 /** Wait until timer elapsed
  *
  * @param fd A file descriptor which was created by timerfd_create(3).

@@ -34,6 +34,7 @@ struct config cfg = {
 
 int probe(int argc, char *argv[]);
 int emulate(int argc, char *argv[]);
+int dist(int argc, char *argv[]);
 
 void quit(int sig, siginfo_t *si, void *ptr)
 {
@@ -47,7 +48,7 @@ int main(int argc, char *argv[])
 		printf( "usage: %s CMD [OPTIONS]\n"
 			"  CMD     can be one of:\n\n"
 			"    probe IP PORT    Start TCP SYN+ACK RTT probes and write measurements data to STDOUT\n"
-			"    live             Read measurement data from STDIN and configure Kernel (tc-netem(8)) on-the-fly.\n"
+			"    emulate          Read measurement data from STDIN and configure Kernel (tc-netem(8)) on-the-fly.\n"
 			"                        This mode only uses the mean and standard deviation of of the previous samples\n"
 			"                        to configure the netem qdisc. This can be used to interactively replicate a network link.\n"
 			"\n"
@@ -129,7 +130,7 @@ check:
 
 	if      (!strcmp(cmd, "probe"))
 		return probe(argc-optind-1, argv+optind+1);
-	else if (!strcmp(cmd, "live"))
+	else if (!strcmp(cmd, "emulate"))
 		return emulate(argc-optind-1, argv+optind+1);
 	else if (!strcmp(cmd, "dist"))
 		return dist(argc-optind-1, argv+optind+1);

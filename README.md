@@ -1,14 +1,13 @@
 # Netem Tool
 
-This tool uses a 3-way TCP handshake to measure the real RTT of a TCP connection.
-The gathered information can be used to configure the Linux network emulation queing discipline (see tc-netem(8)).
+*Note:* This tool is in the alpha stage!
 
-It is possible to directly pass the results of the RTT probes to the Kernel.
-Therefore it allows to simulate an existing network connection in realtime.
-Alternatively, the measurements can be stored and replayed later.
+This tool uses a 3-way TCP handshake to measure the _real_ round-trip-time of a TCP connection.
+The gathered information can be used to configure the Linux network emulation queuing discipline (see [tc-netem(8)](http://man7.org/linux/man-pages/man8/tc-netem.8.html)).
 
-One use case might be to test your application, equipement, protocols against sudden changes of the link quality.
-It also allows to generate custom delay distributions which can be used with tc-netem(8).
+It is possible to directly pass the results of the RTT probes to the Kernel by using a netlink socket and [libnl](http://www.infradead.org/~tgr/libnl/).
+Therefore it allows to simulate an existing network connection on-the-fly.
+Alternatively, the measurements can be stored in a file and replayed later using Bash's IO redirection.
 
 ### Usage
 
@@ -18,15 +17,23 @@ Run TCP SYN/ACK probes to measure round-trip-time (RTT):
 
     ./netem probe 8.8.8.8 53 > measurements.dat
 
+The `probe` sub-command returns the following fields per line on STDOUT:
+
+    current_rtt, mean, sigma
+
 ###### Use case 2a: convert measurements into delay distribution table
 
-Collect measurements to build a tc-netem(8) delay distribution table
+Collect measurements to build a [tc-netem(8)](http://man7.org/linux/man-pages/man8/tc-netem.8.html) delay distribution table
 
     ./netem dist generate < measurements.dat > google_dns.dist
+
+*Please note:* you might have to change the scaling by adjusting the compile time constants in `dist-maketable.h`!
 
 ###### Use case 2b: generate distribution from measurements and load it to the Kernel
 
     ./netem dist load < probing.dat
+
+*Please note:* you might have to change the scaling by adjusting the compile time constants in `dist-maketable.h`!
 
 ###### Use case 3: on-the-fly link simulation
 
@@ -38,25 +45,76 @@ or
 
     ./netem emulate < measurements.dat
 
+The emulate sub-command expects the following fields on STDIN seperated by whitespaces:
+
+    current_rtt, mean, sigma, gap, loss_prob, loss_corr, reorder_prob, reorder_corr, corruption_prob, corruption_corr, duplication_prob, duplication_corr;
+
+At least the first three fields have to be given. The remaining ones are optional.
+
 ###### Use case 4: Limit the effect of the network emulation to a specific application
 
-To apply the network emulation only to a limit stream of packets, you can use the `mark` tool:
+To apply the network emulation only to a limit stream of packets, you can use the `mark` tool.
 
     ./netem -m 0xCD dist load < measurements.dat
     sudo LD_PRELOAD=${PWD}/mark.so MARK=0xCD ping google.de
 
-Please make sure the specify the environmental variables after the sudo command!
+This tool uses the dynamic linker to hook into the `socket()` wrapper-function of libc (see `mark.c`).
+Usually, the hook will simply call the original `socket(2)` syscall for non-AF_NET sockets.
+But for AF_INET sockets, the hook will additionally call `setsockopt(sd, SOL_SOCKET, SO_MARK, ...)` after the socket has been created.
+
+Later on, the `netem` tool will use combination of the classfull `prio` qdisc and the `fw` classifier to limit the network emulation only to the _marked_ application (see use case 5, below).
+
+*Note:* Please make sure the specify the environmental variables after the sudo command!
 This is necessary, as `ping` is a SUID program.
 The dynamic linker strips certain enviromental variables (as `LD_PRELOAD`) for security reasons!
 
+###### Use case 5: Show the current Traffic Controller setup
+
+    ./tcdump.sh eth0
+
+     ======= eth0: qdisc ========
+     qdisc prio 1: root refcnt 2 bands 4 priomap  2 3 3 3 2 3 1 1 2 2 2 2 2 2 2 2
+      Sent 17304 bytes 126 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+     qdisc netem 2: parent 1:1 limit 1000 delay 3.3ms  9.1ms
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+     ======= eth0: filter ========
+     filter parent 1: protocol all pref 49152 fw
+     filter parent 1: protocol all pref 49152 fw handle 0xcd classid 1:1
+     ======= eth0: class ========
+     class prio 1:1 parent 1: leaf 2:
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+     class prio 1:2 parent 1:
+      Sent 15126 bytes 115 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+     class prio 1:3 parent 1:
+      Sent 3270 bytes 17 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+     class prio 1:4 parent 1:
+      Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
+      backlog 0b 0p requeues 0
+
 ### ToDo
 
-Add more metrics:
+##### More metrics:
+
+Add more metrics to the probing system:
 
   - loss
   - duplication
   - corruption
   - reordering
+
+
+##### Hardware Timestamping Support:
+
+There is experimental support for using Linux' HW / Kernelspace timestamping support (see `ts.c`).
+This allows to measure the RTT by using the arrival / departure times of packets in the NIC or in the Kernel, instead of relying on the inaccuarate user space.
+
+Unfortunately, this hardware timestamping support requires special driver support.
+Therefore it's still disabled.
 
 ### Building
 

@@ -5,6 +5,9 @@
  * @license GPLv3
  *********************************************************************************/
 
+#define _POSIX_C_SOURCE 1
+#include <netdb.h>
+
 #include <netlink/route/qdisc/netem.h>
 #include <netlink/route/qdisc/prio.h>
 #include <netlink/route/cls/fw.h>
@@ -50,7 +53,7 @@ int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 	return ret;
 }
 
-int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc, struct tc_netem *ne)
+int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 {
 	struct rtnl_qdisc *q;
 	
@@ -64,21 +67,6 @@ int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc, 
 	}
 	else
 		q = (struct rtnl_qdisc *) (*tc);
-
-	rtnl_netem_set_limit(q, ne->limit);
-	rtnl_netem_set_gap(q, ne->gap);
-	rtnl_netem_set_reorder_probability(q, ne->reorder_prob);
-	rtnl_netem_set_reorder_correlation(q, ne->reorder_corr);
-	rtnl_netem_set_corruption_probability(q, ne->corruption_prob);
-	rtnl_netem_set_corruption_correlation(q, ne->corruption_corr);
-	rtnl_netem_set_loss(q, ne->loss_prob);
-	rtnl_netem_set_loss_correlation(q, ne->loss_corr);
-	rtnl_netem_set_duplicate(q, ne->duplication_prob);
-	rtnl_netem_set_duplicate_correlation(q, ne->duplication_corr);
-	rtnl_netem_set_delay(q, ne->delay);
-	rtnl_netem_set_jitter(q, ne->jitter);
-	rtnl_netem_set_delay_correlation(q, ne->delay_corr);
-	//rtnl_netem_set_delay_distribution(q, ne->delay_distr);
 
 	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
 
@@ -139,5 +127,56 @@ int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stat
 
 int tc_print_stats(struct tc_stats *stats)
 {
+	return 0;
+}
+
+int tc_print_netem(struct rtnl_tc *tc)
+{
+	struct rtnl_qdisc *ne = (struct rtnl_qdisc *) tc;
+	
+	if (rtnl_netem_get_limit(ne) > 0)
+		printf("limit %upkts", rtnl_netem_get_limit(ne));
+
+	if (rtnl_netem_get_delay(ne) > 0) {
+		printf("delay %fms ", rtnl_netem_get_delay(ne) / 1000.0);
+		
+		if (rtnl_netem_get_jitter(ne) > 0) {
+			printf("jitter %fms ", rtnl_netem_get_jitter(ne) / 1000.0);
+			
+			if (rtnl_netem_get_delay_correlation(ne) > 0)
+				printf("%u%% ", rtnl_netem_get_delay_correlation(ne));
+		}
+	}
+	
+	if (rtnl_netem_get_loss(ne) > 0) {
+		printf("loss %u%% ", rtnl_netem_get_loss(ne));
+	
+		if (rtnl_netem_get_loss_correlation(ne) > 0)
+			printf("%u%% ", rtnl_netem_get_loss_correlation(ne));
+	}
+	
+	if (rtnl_netem_get_reorder_probability(ne) > 0) {
+		printf(" reorder%u%% ", rtnl_netem_get_reorder_probability(ne));
+	
+		if (rtnl_netem_get_reorder_correlation(ne) > 0)
+			printf("%u%% ", rtnl_netem_get_reorder_correlation(ne));
+	}
+	
+	if (rtnl_netem_get_corruption_probability(ne) > 0) {
+		printf("corruption %u%% ", rtnl_netem_get_corruption_probability(ne));
+	
+		if (rtnl_netem_get_corruption_correlation(ne) > 0)
+			printf("%u%% ", rtnl_netem_get_corruption_correlation(ne));
+	}
+	
+	if (rtnl_netem_get_duplicate(ne) > 0) {
+		printf("duplication %u%% ", rtnl_netem_get_duplicate(ne));
+	
+		if (rtnl_netem_get_duplicate_correlation(ne) > 0)
+			printf("%u%% ", rtnl_netem_get_duplicate_correlation(ne));
+	}
+	
+	printf("\n");
+	
 	return 0;
 }

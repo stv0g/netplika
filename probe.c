@@ -108,6 +108,8 @@ retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
 
 int probe(int argc, char *argv[])
 {
+	int run = 0, tfd;
+	
 	/* Parse address */
 	struct nl_addr *addr;
 	struct sockaddr_in sin;
@@ -138,9 +140,9 @@ int probe(int argc, char *argv[])
 
 	/* Enable Kernel TS support */
 	if (ts_enable_if("lo"))
-		perror("Failed to enable timestamping");
+		fprintf(stderr, "Failed to enable timestamping: %s\n", strerror(errno));
 	if (ts_enable_sd(sd))
-		perror("Failed to set SO_TIMESTAMPING");
+		fprintf(stderr, "Failed to set SO_TIMESTAMPING: %s\n", strerror(errno));
 	
 	/* Prepare payload */
 	struct timespec ts;
@@ -150,20 +152,10 @@ int probe(int argc, char *argv[])
 	hist_create(&hist, 0, 0, 1);
 	
 	/* Start timer */
-	struct itimerspec its = {
-		.it_interval = time_from_double(1 / cfg.rate),
-		.it_value = { 1, 0 }
-	};
-
-	int tfd = timerfd_create(CLOCK_REALTIME, 0);
-	if (tfd < 0)
-		error(-1, errno, "Failed to create timer");
-
-	if (timerfd_settime(tfd, 0, &its, NULL))
-		error(-1, errno, "Failed to start timer");
+	if ((tfd = timerfd_init(cfg.rate)) < 0)
+		error(-1, errno, "Failed to initilize timer");
 	
-	unsigned run = 0;
-	while (cfg.limit && run < cfg.limit) {		
+	do {		
 		probe_tcp(sd, dport, &ts);
 
 		double rtt = time_to_double(&ts);
@@ -177,7 +169,7 @@ int probe(int argc, char *argv[])
 			double span = hist.highest - hist.lowest;
 			hist_destroy(&hist);
 			hist_create(&hist, MAX(0, hist.lowest - span * 0.1), hist.highest + span * 0.2, span / 20);
-			printf("Created new histogram: high=%f, low=%f, buckets=%u\n",
+			fprintf(stderr, "Created new histogram: high=%f, low=%f, buckets=%u\n",
 				hist.high, hist.low, hist.length);
 
 			/* Print header for output */
@@ -192,14 +184,14 @@ int probe(int argc, char *argv[])
 			printf("# Started: %s\n", date);
 			printf("# RTT  mu sigma (units in S)\n");
 		}
-		//else if (run > 20)
-			printf("%f %f %f\n", rtt, hist_mean(&hist), hist_stddev(&hist));
-		
-		timerfd_wait(tfd);
-		run++;
-	}
+			
+		printf("%f %f %f\n", rtt, hist_mean(&hist), hist_stddev(&hist));
+		fflush(stdout);
+
+		run += timerfd_wait(tfd);
+	} while (cfg.limit && run < cfg.limit);
 	
-	hist_print(&hist);
+	hist_print(&hist, stderr);
 	hist_destroy(&hist);
 
 	return 0;

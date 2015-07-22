@@ -14,6 +14,23 @@
 
 #include "timing.h"
 
+int timerfd_init(double rate)
+{
+	struct itimerspec its = {
+		.it_interval = time_from_double(1 / rate),
+		.it_value = { 1, 0 }
+	};
+
+	int tfd = timerfd_create(CLOCK_REALTIME, 0);
+	if (tfd < 0)
+		return -1;
+
+	if (timerfd_settime(tfd, 0, &its, NULL))
+		return -1;
+	
+	return tfd;
+}
+
 uint64_t timerfd_wait(int fd)
 {
 	uint64_t runs;
