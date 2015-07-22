@@ -79,7 +79,7 @@ Or, the `tc-cgroup.sh` script which uses a special priority for a certain cgroup
 
 ###### Use case 5: Show the current Traffic Controller setup
 
-    ./tcdump.sh eth0
+    ./tc-dump.sh eth0
 
      ======= eth0: qdisc ========
      qdisc prio 1: root refcnt 2 bands 4 priomap  2 3 3 3 2 3 1 1 2 2 2 2 2 2 2 2
