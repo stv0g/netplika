@@ -73,13 +73,13 @@ Alternatively you can set the mark using netfilter:
 
     iptables -t mangle -I OUTPUT -d 8.8.8.8 --set-mark 0xBABE -j MARK
 
-Or, the `tc-cgroup.sh` script which uses a special priority for a certain cgroup:
+Or, the `scripts/tc-cgroup.sh` script which uses a special priority for a certain cgroup:
 
     ./tc-cgroup ping google.de
 
 ###### Use case 5: Show the current Traffic Controller setup
 
-    ./tc-dump.sh eth0
+    ./scripts/tc-dump.sh eth0
 
      ======= eth0: qdisc ========
      qdisc prio 1: root refcnt 2 bands 4 priomap  2 3 3 3 2 3 1 1 2 2 2 2 2 2 2 2
@@ -107,9 +107,9 @@ Or, the `tc-cgroup.sh` script which uses a special priority for a certain cgroup
 
 ##### Use case 6: Reset Traffic Controller to defaults
 
-    ./scripts/tc-reset.sh eth0
+    scripts/tc-reset.sh eth0
 
-    ./scripts/tc-dump.sh eth0
+    scripts/tc-dump.sh eth0
 	======= eth0: qdisc ========
 	qdisc pfifo_fast 8005: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
 	 Sent 57402 bytes 774 pkt (dropped 0, overlimits 0 requeues 0) 
