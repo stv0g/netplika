@@ -55,8 +55,8 @@ At least the first three fields have to be given. The remaining ones are optiona
 
 To apply the network emulation only to a limit stream of packets, you can use the `mark` tool.
 
-    ./netem -m 0xCD dist load < measurements.dat
-    sudo LD_PRELOAD=${PWD}/mark.so MARK=0xCD ping google.de
+    ./netem -m 0xBABE dist load < measurements.dat
+    sudo LD_PRELOAD=${PWD}/mark.so MARK=0xBABE netcat google.de 80
 
 This tool uses the dynamic linker to hook into the `socket()` wrapper-function of libc (see `mark.c`).
 Usually, the hook will simply call the original `socket(2)` syscall for non-AF_NET sockets.
@@ -64,9 +64,18 @@ But for AF_INET sockets, the hook will additionally call `setsockopt(sd, SOL_SOC
 
 Later on, the `netem` tool will use combination of the classfull `prio` qdisc and the `fw` classifier to limit the network emulation only to the _marked_ application (see use case 5, below).
 
-*Note:* Please make sure the specify the environmental variables after the sudo command!
-This is necessary, as `ping` is a SUID program.
-The dynamic linker strips certain enviromental variables (as `LD_PRELOAD`) for security reasons!
+*Note:* There are two pittfalls when using this approach:
+
+- Make sure to specify the environmental variables after the sudo command! This is necessary, as `ping` is a SUID program. The dynamic linker strips certain enviromental variables (as `LD_PRELOAD`) for security reasons when privileges are elevated.
+- Setting the packet mark requires CAP_NET_ADMIN privs. Therefore you must start the application as root. Unfortunately, some applications also drop those privs quite early (ping is an example which luckily has an `-m` option).
+
+Alternatively you can set the mark using netfilter:
+
+    iptables -t mangle -I OUTPUT -d 8.8.8.8 --set-mark 0xBABE -j MARK
+
+Or, the `tc-cgroup.sh` script which uses a special priority for a certain cgroup:
+
+    ./tc-cgroup ping google.de
 
 ###### Use case 5: Show the current Traffic Controller setup
 
