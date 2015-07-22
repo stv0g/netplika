@@ -105,6 +105,18 @@ Or, the `tc-cgroup.sh` script which uses a special priority for a certain cgroup
       Sent 0 bytes 0 pkt (dropped 0, overlimits 0 requeues 0)
       backlog 0b 0p requeues 0
 
+##### Use case 6: Reset Traffic Controller to defaults
+
+    ./scripts/tc-reset.sh eth0
+
+    ./scripts/tc-dump.sh eth0
+	======= eth0: qdisc ========
+	qdisc pfifo_fast 8005: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+	 Sent 57402 bytes 774 pkt (dropped 0, overlimits 0 requeues 0) 
+	 backlog 0b 0p requeues 0 
+	======= eth0: filter ========
+	======= eth0: class ========
+
 ### ToDo
 
 ##### More metrics:
