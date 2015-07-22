@@ -103,6 +103,8 @@ int emulate(int argc, char *argv[])
 	struct rtnl_tc *qdisc_netem = NULL;
 	struct rtnl_tc *cls_fw = NULL;
 
+	struct tc_statistics stats_netem;
+
 	/* Create connection to netlink */
 	sock = nl_socket_alloc();
 	nl_connect(sock, NETLINK_ROUTE);
@@ -152,7 +154,9 @@ int emulate(int argc, char *argv[])
 		nl_object_dump((struct nl_object *) qdisc_prio, &dp_param);	
 		nl_object_dump((struct nl_object *) cls_fw, &dp_param);	
 #endif
+
 		tc_print_netem(qdisc_netem);
+		tc_print_stats(&stats_netem);
 
 next_line:	len = getline(&line, &linelen, stdin);
 		if (len < 0 && errno == ENOENT)

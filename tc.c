@@ -125,9 +125,9 @@ int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stat
 	return 0;
 }
 
-int tc_print_stats(struct tc_stats *stats)
+int tc_print_stats(struct tc_statistics *stats)
 {
-	return 0;
+	printf("packets %u bytes %u\n", stats->packets, stats->bytes);
 }
 
 int tc_print_netem(struct rtnl_tc *tc)

@@ -12,7 +12,7 @@
 #include <netlink/route/qdisc.h>
 #include <netlink/route/classifier.h>
 
-/*struct tc_stats {
+struct tc_statistics {
 	uint64_t packets;	// Number of packets seen.
 	uint64_t bytes;		// Total bytes seen.
 	uint64_t rate_bps;	// Current bits/s (rate estimator)
@@ -22,7 +22,7 @@
 	uint64_t drops;		// Total number of packets dropped.
 	uint64_t requeues;	// Total number of requeues.
 	uint64_t overlimits;	// Total number of overlimits.	
-};*/
+};
 
 struct rtnl_link * tc_get_link(struct nl_sock *sock, const char *dev);
 
@@ -36,7 +36,7 @@ int tc_reset(struct nl_sock *sock, struct rtnl_link *link);
 
 int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stats);
 
-int tc_print_stats(struct tc_stats *stats);
+int tc_print_stats(struct tc_statistics *stats);
 
 int tc_print_netem(struct rtnl_tc *tc);
 
