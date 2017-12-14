@@ -1,12 +1,14 @@
 /** Trafic Controller (TC) related functions
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2015, Steffen Vogel 
+ * @copyright 2014-2015, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 
-#define _POSIX_C_SOURCE 1
+#define _POSIX_C_SOURCE 200112L
 #include <netdb.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 
 #include <netlink/route/qdisc/netem.h>
 #include <netlink/route/qdisc/prio.h>
@@ -41,7 +43,7 @@ int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 	rtnl_tc_set_link(TC_CAST(q), link);
 	rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
 	rtnl_tc_set_handle(TC_CAST(q), TC_HANDLE(1, 0));
-	rtnl_tc_set_kind(TC_CAST(q), "prio"); 
+	rtnl_tc_set_kind(TC_CAST(q), "prio");
 
 	rtnl_qdisc_prio_set_bands(q, 3+1);
 	rtnl_qdisc_prio_set_priomap(q, map, 7);
@@ -49,14 +51,14 @@ int tc_prio(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
 
 	*tc = TC_CAST(q);
-	
+
 	return ret;
 }
 
 int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 {
 	struct rtnl_qdisc *q;
-	
+
 	if (*tc == NULL) {
 		q = rtnl_qdisc_alloc();
 
@@ -71,7 +73,7 @@ int tc_netem(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc **tc)
 	int ret = rtnl_qdisc_add(sock, q, NLM_F_CREATE);
 
 	*tc = TC_CAST(q);
-	
+
 	return ret;
 }
 
@@ -81,17 +83,17 @@ int tc_classifier(struct nl_sock *sock, struct rtnl_link *link, struct rtnl_tc *
 
 	rtnl_tc_set_link(TC_CAST(c), link);
 	rtnl_tc_set_handle(TC_CAST(c), mark);
-	rtnl_tc_set_kind(TC_CAST(c), "fw"); 
+	rtnl_tc_set_kind(TC_CAST(c), "fw");
 
 	rtnl_cls_set_protocol(c, ETH_P_ALL);
-	
+
 	rtnl_fw_set_classid(c, TC_HANDLE(1, 1));
 	rtnl_fw_set_mask(c, mask);
 
 	int ret = rtnl_cls_add(sock, c, NLM_F_CREATE);
 
 	*tc = TC_CAST(c);
-	
+
 	return ret;
 }
 
@@ -102,81 +104,81 @@ int tc_reset(struct nl_sock *sock, struct rtnl_link *link)
 	/* Restore default qdisc by deleting the root qdisc (see tc-pfifo_fast(8)) */
 	rtnl_tc_set_link(TC_CAST(q), link);
 	rtnl_tc_set_parent(TC_CAST(q), TC_H_ROOT);
-	
-	int ret = rtnl_qdisc_delete(sock, q); 
+
+	int ret = rtnl_qdisc_delete(sock, q);
 	rtnl_qdisc_put(q);
-	
+
 	return ret;
 }
 
 int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stats)
 {
 	uint64_t *counters = (uint64_t *) stats;
-	
+
 	struct nl_cache *cache;
-	
+
 	rtnl_qdisc_alloc_cache(sock, &cache);
-	
+
 	for (int i = 0; i <= RTNL_TC_STATS_MAX; i++)
 		counters[i] = rtnl_tc_get_stat(tc, i);
-			
+
 	nl_cache_free(cache);
 
 	return 0;
 }
 
-int tc_print_stats(struct tc_statistics *stats)
+void tc_print_stats(struct tc_statistics *stats)
 {
-	printf("packets %u bytes %u\n", stats->packets, stats->bytes);
+	printf("packets %lu bytes %lu\n", stats->packets, stats->bytes);
 }
 
 int tc_print_netem(struct rtnl_tc *tc)
 {
 	struct rtnl_qdisc *ne = (struct rtnl_qdisc *) tc;
-	
+
 	if (rtnl_netem_get_limit(ne) > 0)
 		printf("limit %upkts", rtnl_netem_get_limit(ne));
 
 	if (rtnl_netem_get_delay(ne) > 0) {
 		printf("delay %fms ", rtnl_netem_get_delay(ne) / 1000.0);
-		
+
 		if (rtnl_netem_get_jitter(ne) > 0) {
 			printf("jitter %fms ", rtnl_netem_get_jitter(ne) / 1000.0);
-			
+
 			if (rtnl_netem_get_delay_correlation(ne) > 0)
 				printf("%u%% ", rtnl_netem_get_delay_correlation(ne));
 		}
 	}
-	
+
 	if (rtnl_netem_get_loss(ne) > 0) {
 		printf("loss %u%% ", rtnl_netem_get_loss(ne));
-	
+
 		if (rtnl_netem_get_loss_correlation(ne) > 0)
 			printf("%u%% ", rtnl_netem_get_loss_correlation(ne));
 	}
-	
+
 	if (rtnl_netem_get_reorder_probability(ne) > 0) {
 		printf(" reorder%u%% ", rtnl_netem_get_reorder_probability(ne));
-	
+
 		if (rtnl_netem_get_reorder_correlation(ne) > 0)
 			printf("%u%% ", rtnl_netem_get_reorder_correlation(ne));
 	}
-	
+
 	if (rtnl_netem_get_corruption_probability(ne) > 0) {
 		printf("corruption %u%% ", rtnl_netem_get_corruption_probability(ne));
-	
+
 		if (rtnl_netem_get_corruption_correlation(ne) > 0)
 			printf("%u%% ", rtnl_netem_get_corruption_correlation(ne));
 	}
-	
+
 	if (rtnl_netem_get_duplicate(ne) > 0) {
 		printf("duplication %u%% ", rtnl_netem_get_duplicate(ne));
-	
+
 		if (rtnl_netem_get_duplicate_correlation(ne) > 0)
 			printf("%u%% ", rtnl_netem_get_duplicate_correlation(ne));
 	}
-	
+
 	printf("\n");
-	
+
 	return 0;
 }

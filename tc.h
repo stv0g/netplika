@@ -1,7 +1,7 @@
 /** Trafic Controller (TC) related functions
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2015, Steffen Vogel 
+ * @copyright 2014-2015, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 
@@ -21,7 +21,7 @@ struct tc_statistics {
 	uint64_t backlog;	// Current backlog length.
 	uint64_t drops;		// Total number of packets dropped.
 	uint64_t requeues;	// Total number of requeues.
-	uint64_t overlimits;	// Total number of overlimits.	
+	uint64_t overlimits;	// Total number of overlimits.
 };
 
 struct rtnl_link * tc_get_link(struct nl_sock *sock, const char *dev);
@@ -36,7 +36,7 @@ int tc_reset(struct nl_sock *sock, struct rtnl_link *link);
 
 int tc_get_stats(struct nl_sock *sock, struct rtnl_tc *tc, struct tc_stats *stats);
 
-int tc_print_stats(struct tc_statistics *stats);
+void tc_print_stats(struct tc_statistics *stats);
 
 int tc_print_netem(struct rtnl_tc *tc);
 
