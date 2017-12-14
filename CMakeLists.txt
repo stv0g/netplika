@@ -21,3 +21,26 @@ target_link_libraries(netem PUBLIC "-lrt -lnl-3 -lnl-route-3 -lm")
 target_include_directories(netem PUBLIC "/usr/include/libnl3")
 
 add_library(mark mark.c)
+
+set(CPACK_PACKAGE_NAME "netem")
+set(CPACK_PACKAGE_CONTACT "Steffen Vogel <post@steffenvogel.de>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "netem measures and emulates network delay distributions using the NetEm queuing discipline")
+set(CPACK_PACKAGE_VERSION_MAJOR 0)
+set(CPACK_PACKAGE_VERSION_MINOR 1)
+set(CPACK_PACKAGE_VERSION_PATCH 0)
+
+set(CPACK_DEBIAN_PACKAGE_DEPENDS "iproute2")
+set(CPACK_DEBIAN_PACKAGE_SECTION "devel")
+set(CPACK_DEBIAN_PACKAGE_HOMEPAGE "http://github.com/stv0g/netem")
+
+set(CPACK_RPM_PACKAGE_LICENSE "GPL-3.0")
+set(CPACK_RPM_PACKAGE_URL "http://github.com/stv0g/netem")
+set(CPACK_RPM_PACKAGE_REQUIRES "iproute2")
+
+set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_SOURCE_DIR}/COPYING.md")
+set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/README.md")
+
+set(CPACK_GENERATOR "DEB;RPM;TGZ")
+
+include(CPack)
+
