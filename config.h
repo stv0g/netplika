@@ -17,7 +17,12 @@ struct config {
 	int limit;
 	int warmup;
 	double rate;
+	double scaling;
 	char *dev;
+	enum {
+		FORMAT_TC,
+		FORMAT_VILLAS
+	} format;
 };
 
 /* Declared in main.c */

@@ -21,6 +21,11 @@ target_include_directories(netem PUBLIC "/usr/include/libnl3")
 
 add_library(mark mark.c)
 
+install(TARGETS netem mark 
+	RUNTIME DESTINATION bin
+	LIBRARY DESTINATION lib
+	ARCHIVE DESTINATION lib/static)
+
 set(CPACK_PACKAGE_NAME "netem")
 set(CPACK_PACKAGE_CONTACT "Steffen Vogel <post@steffenvogel.de>")
 set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "netem measures and emulates network delay distributions using the NetEm queuing discipline")

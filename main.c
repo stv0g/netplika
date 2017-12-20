@@ -25,12 +25,14 @@ int running = 1;
 
 /* Default settings */
 struct config cfg = {
-	.limit = 5000,
-	.rate = 1000,
+	.limit = 100,
+	.rate = 1,
+	.scaling = 1,
 	.mark = 0xCD,
 	.mask = 0xFFFFFFFF,
 	.warmup = 200,
-	.dev = "eth0"
+	.dev = "eth0",
+	.format = FORMAT_TC
 };
 
 int probe(int argc, char *argv[]);
@@ -59,13 +61,15 @@ int main(int argc, char *argv[])
 			"                        recorded measurements. This iCDF can either be used by tc(8) or 'netem table'\n"
 			"\n"
 			"  OPTIONS:\n\n"
-			"    -m N      apply emulation only to packet buffers with mark N\n"
-			"    -M N      an optional mask for the fw mark\n"
-			"    -i N      update the emulation parameters every N seconds\n"
-			"    -r R      rate limit used for measurements and updates of network emulation\n"
-			"    -l L      how many probes should we sent\n"
-			"    -w W      number of probe samples to be collected for estimating histogram boundaries\n"
-			"    -d IF     network interface\n"
+			"    -m  N      apply emulation only to packet buffers with mark N\n"
+			"    -M  N      an optional mask for the fw mark\n"
+			"    -i  N      update the emulation parameters every N seconds\n"
+			"    -r RATE    rate limit used for measurements and updates of network emulation\n"
+			"    -l CNT     how many probes should we sent\n"
+			"    -w SAMPLES number of probe samples to be collected for estimating histogram boundaries\n"
+			"    -d IF      network interface\n"
+			"    -s FACTOR  a scaling factor for the dist subcommands\n"
+			"    -f FMT     the output format of the distribution tables\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
 			" Copyright 2017, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
@@ -88,7 +92,7 @@ int main(int argc, char *argv[])
 
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:w:")) != -1) {
+	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:f:w:")) != -1) {
 		switch (c) {
 			case 'm':
 				cfg.mark = strtoul(optarg, &endptr, 0);
@@ -108,11 +112,22 @@ int main(int argc, char *argv[])
 			case 'l':
 				cfg.limit = strtoul(optarg, &endptr, 10);
 				goto check;
-
 			case 'd':
 				cfg.dev = strdup(optarg);
 				break;
-
+			case 's':
+				cfg.scaling = strtof(optarg, &endptr);
+				goto check;
+			case 'f':
+				if (strcmp(optarg, "villas") == 0)
+					cfg.format = FORMAT_VILLAS;
+				else if (strcmp(optarg, "tc") == 0)
+					cfg.format = FORMAT_TC;
+				else {
+					error(-1, 0, "Unknown format: %s.", optarg);
+					exit(EXIT_FAILURE);
+				}
+				break;
 			case '?':
 				if (optopt == 'c')
 					error(-1, 0, "Option -%c requires an argument.", optopt);
@@ -120,6 +135,7 @@ int main(int argc, char *argv[])
 					error(-1, 0, "Unknown option '-%c'.", optopt);
 				else
 					error(-1, 0, "Unknown option character '\\x%x'.", optopt);
+
 				exit(EXIT_FAILURE);
 			default:
 				abort();
@@ -131,7 +147,7 @@ check:
 			error(-1, 0, "Failed to parse parse option argument '-%c %s'", c, optarg);
 	}
 
-	char *cmd = argv[1];
+	char *cmd = argv[optind];
 
 	if      (!strcmp(cmd, "probe"))
 		return probe(argc-optind-1, argv+optind+1);
