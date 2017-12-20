@@ -18,6 +18,12 @@ void hexdump(void *mem, unsigned int len);
 
 void * alloc(size_t bytes);
 
+/* Compute Internet Checksum for "count" bytes beginning at location "addr".
+ *
+ * Source: RFC 1071
+ */
+uint16_t chksum_rfc1071(char *buf, size_t count)
+
 /** Safely append a format string to an existing string.
  *
  * This function is similar to strlcat() from BSD.

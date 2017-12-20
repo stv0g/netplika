@@ -17,6 +17,28 @@
 
 #include "utils.h"
 
+uint16_t chksum_rfc1071(char *buf, size_t count)
+{
+	int32_t sum = 0;
+
+	/*  This is the inner loop */
+	while (count > 1)  {
+		sum += * (uint16_t) buf++;
+		count -= 2;
+	}
+
+	/*  Add left-over byte, if any */
+	if (count > 0)
+		sum += * (uint8_t *) buf;
+
+	/*  Fold 32-bit sum to 16 bits */
+	while (sum >> 16)
+		sum = (sum & 0xffff) + (sum >> 16);
+
+	return ~sum;
+}
+
+
 void hexdump(void *mem, unsigned int len)
 {
 	unsigned int i, j;
