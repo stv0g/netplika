@@ -30,7 +30,8 @@ struct config cfg = {
 	.scaling = 1,
 	.mark = 0xCD,
 	.mask = 0xFFFFFFFF,
-	.dev = "eth0"
+	.dev = "eth0",
+	.format = FORMAT_TC
 };
 
 int probe(int argc, char *argv[]);
@@ -66,6 +67,7 @@ int main(int argc, char *argv[])
 			"    -l --limit       how many probes should we sent\n"
 			"    -d --dev         network interface\n"
 			"    -s FACTOR        a scaling factor for the dist subcommands\n"
+			"    -f FMT           the output format of the distribution tables\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
 			" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
@@ -88,7 +90,7 @@ int main(int argc, char *argv[])
 
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:")) != -1) {
+	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:f:")) != -1) {
 		switch (c) {
 			case 'm':
 				cfg.mark = strtoul(optarg, &endptr, 0);
@@ -110,6 +112,16 @@ int main(int argc, char *argv[])
 				goto check;
 			case 'd':
 				cfg.dev = strdup(optarg);
+				break;
+			case 'f':
+				if (strcmp(optarg, "villas") == 0)
+					cfg.format = FORMAT_VILLAS;
+				else if (strcmp(optarg, "tc") == 0)
+                    cfg.format = FORMAT_TC;
+				else {
+					error(-1, 0, "Unknown format: %s.", optarg);
+					exit(EXIT_FAILURE);
+				}
 				break;
 			case '?':
 				if (optopt == 'c')

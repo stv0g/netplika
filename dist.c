@@ -18,6 +18,8 @@
 #include <error.h>
 #include <errno.h>
 #include <string.h>
+#include <time.h>
+#include <unistd.h>
 
 #include <netlink/route/qdisc.h>
 #include <netlink/route/tc.h>
@@ -88,6 +90,7 @@ static int dist_generate(int argc, char *argv[])
 {
 	FILE *fp;
 	double mu, sigma, rho;
+	int cnt;
 
 	if (argc == 1) {
 		if (!(fp = fopen(argv[0], "r")))
@@ -96,11 +99,42 @@ static int dist_generate(int argc, char *argv[])
 	else
 		fp = stdin;
 
-	short *inverse = dist_make(fp, &mu, &sigma, &rho);
+	short *inverse = dist_make(fp, &mu, &sigma, &rho, &cnt);
 	if (!inverse)
 		error(-1, 0, "Failed to generate distribution");
 
-	printtable(inverse, TABLESIZE);
+	char date[100], user[100], host[100];
+    time_t now = time (0);
+    strftime(date, sizeof(date), "%Y-%m-%d %H:%M", localtime(&now));
+	gethostname(host, sizeof(host));
+	getlogin_r(user, sizeof(user));
+
+	printf("# This is the distribution table for the experimental distribution.\n");
+	printf("#  Read %d values, mu %.6f, sigma %.6f, rho %.6f\n", cnt, mu, sigma, rho);
+    printf("#  Generated %s, by %s on %s\n", date, user, host);
+	printf("#\n");
+
+	switch (cfg.format) {
+		case FORMAT_TC:
+			printtable(inverse, TABLESIZE);
+			break;
+
+		case FORMAT_VILLAS:
+			printf("netem = {\n");
+			printf("	delay        = %f\n", mu * 1e6);
+			printf("	jitter       = %f\n", sigma * 1e6);
+			printf("	distribution = [ %d", inverse[0]);
+
+			for (int i = 1; i < TABLESIZE; i++)
+				printf(", %d", inverse[i]);
+
+			printf(" ]\n");
+			printf("	loss         = 0,\n");
+			printf("	duplicate    = 0,\n");
+			printf("	corrupt      = 0\n");
+			printf(" }\n");
+			break;
+	}
 
 	return 0;
 }
@@ -109,6 +143,7 @@ static int dist_load(int argc, char *argv[])
 {
 	FILE *fp;
 	double mu, sigma, rho;
+	int cnt;
 
 	if (argc == 1) {
 		if (!(fp = fopen(argv[0], "r")))
@@ -117,7 +152,7 @@ static int dist_load(int argc, char *argv[])
 	else
 		fp = stdin;
 
-	short *inverse = dist_make(fp, &mu, &sigma, &rho);
+	short *inverse = dist_make(fp, &mu, &sigma, &rho, &cnt);
 	if (!inverse)
 		error(-1, 0, "Failed to generate distribution");
 
