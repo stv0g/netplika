@@ -5,7 +5,7 @@
  *  - https://github.com/thom311/libnl/blob/master/lib/route/qdisc/netem.c
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2015, Steffen Vogel
+ * @copyright 2014-2017, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 

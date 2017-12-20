@@ -40,7 +40,7 @@ double * readdoubles(FILE *fp, int *number)
 	x = calloc(limit, sizeof(double));
 	if (!x)
 		error(-1, 0, "Alloc");
-	
+
 	size_t linelen = 0;
 	char *line;
 
@@ -48,9 +48,9 @@ double * readdoubles(FILE *fp, int *number)
 		if (getline(&line, &linelen, fp) > 0) {
 			if (line[0] == '#' || line[0] == '\r' || line[0] == '\n')
 				continue;
-			
+
 			fscanf(fp, "%lf", &x[i]);
-		
+
 			++n;
 		}
 		else if (feof(fp))
@@ -64,21 +64,21 @@ double * readdoubles(FILE *fp, int *number)
 
 void arraystats(double *x, int limit, double *mu, double *sigma, double *rho)
 {
-	int n=0, i;
-	double sumsquare=0.0, sum=0.0, top=0.0;
-	double sigma2=0.0;
+	int n = 0, i;
+	double sumsquare = 0.0, sum = 0.0, top = 0.0;
+	double sigma2 = 0.0;
 
-	for (i=0; i<limit; ++i){
-		sumsquare += x[i]*x[i];
+	for (i = 0; i < limit; ++i){
+		sumsquare += x[i] * x[i];
 		sum += x[i];
 		++n;
 	}
 
-	*mu = sum/(double)n;
-	*sigma = sqrt((sumsquare - (double)n*(*mu)*(*mu))/(double)(n-1));
+	*mu = sum / (double) n;
+	*sigma = sqrt((sumsquare - (double) n * (*mu) * (*mu)) / (double) (n-1));
 
-	for (i=1; i < n; ++i){
-		top += ((double)x[i]- *mu)*((double)x[i-1]- *mu);
+	for (i = 1; i < n; ++i){
+		top += ((double) x[i]- *mu) * ((double) x[i-1] - *mu);
 		sigma2 += ((double)x[i-1] - *mu)*((double)x[i-1] - *mu);
 
 	}
@@ -202,7 +202,7 @@ main(int argc, char **argv)
 		}
 	} else {
 		fp = stdin;
-	}				
+	}
 	x = readdoubles(fp, &limit);
 	if (limit <= 0) {
 		fprintf(stderr, "Nothing much read!\n");
@@ -213,7 +213,7 @@ main(int argc, char **argv)
 	fprintf(stderr, "%d values, mu %10.4f, sigma %10.4f, rho %10.4f\n",
 		limit, mu, sigma, rho);
 #endif
-	
+
 	table = makedist(x, limit, mu, sigma);
 	free((void *) x);
 	cumulativedist(table, DISTTABLESIZE, &total);

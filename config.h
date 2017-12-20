@@ -1,7 +1,7 @@
 /** Global configuration.
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2015, Steffen Vogel 
+ * @copyright 2014-2017, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 

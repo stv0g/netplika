@@ -22,6 +22,7 @@
 
 #define TABLESIZE	16384/4
 #define TABLEFACTOR	8192
+
 #ifndef MINSHORT
 #define MINSHORT	-32768
 #define MAXSHORT	32767

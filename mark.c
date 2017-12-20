@@ -9,7 +9,7 @@
  *
  * @author Steffen Vogel <post@steffenvogel.de>
  * @authir D.J. Capelis
- * @copyright 2014-2015, Steffen Vogel
+ * @copyright 2014-2017, Steffen Vogel
  * @copyright 2007, Regents of the University of California
  * @license GPLv3
  *********************************************************************************/

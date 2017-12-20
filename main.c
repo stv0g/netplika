@@ -1,7 +1,7 @@
 /** Main routine.
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2015, Steffen Vogel
+ * @copyright 2014-2017, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 
@@ -44,7 +44,7 @@ void quit(int sig, siginfo_t *si, void *ptr)
 }
 
 int main(int argc, char *argv[])
-{	
+{
 	if (argc < 2) {
 		printf( "usage: %s CMD [OPTIONS]\n"
 			"  CMD     can be one of:\n\n"
@@ -68,10 +68,10 @@ int main(int argc, char *argv[])
 			"    -d IF     network interface\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
-			" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
+			" Copyright 2017, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
 
 		exit(EXIT_FAILURE);
-	}	
+	}
 
 	/* Setup signals */
 	struct sigaction sa_quit = {
@@ -82,10 +82,10 @@ int main(int argc, char *argv[])
 	sigemptyset(&sa_quit.sa_mask);
 	sigaction(SIGTERM, &sa_quit, NULL);
 	sigaction(SIGINT, &sa_quit, NULL);
-	
+
 	/* Initialize PRNG for TCP sequence nos */
 	srand(time(NULL));
-	
+
 	/* Parse Arguments */
 	char c, *endptr;
 	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:w:")) != -1) {
@@ -108,11 +108,11 @@ int main(int argc, char *argv[])
 			case 'l':
 				cfg.limit = strtoul(optarg, &endptr, 10);
 				goto check;
-				
+
 			case 'd':
 				cfg.dev = strdup(optarg);
 				break;
-				
+
 			case '?':
 				if (optopt == 'c')
 					error(-1, 0, "Option -%c requires an argument.", optopt);
@@ -124,13 +124,13 @@ int main(int argc, char *argv[])
 			default:
 				abort();
 		}
-		
+
 		continue;
 check:
 		if (optarg == endptr)
 			error(-1, 0, "Failed to parse parse option argument '-%c %s'", c, optarg);
 	}
-	
+
 	char *cmd = argv[1];
 
 	if      (!strcmp(cmd, "probe"))
@@ -141,6 +141,6 @@ check:
 		return dist(argc-optind-1, argv+optind+1);
 	else
 		error(-1, 0, "Unknown command: %s", cmd);
-	
+
 	return 0;
 }
