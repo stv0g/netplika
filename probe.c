@@ -33,7 +33,6 @@
 #include "ts.h"
 #include "timing.h"
 #include "config.h"
-#include "tcp.h"
 #include "utils.h"
 #include "hist.h"
 
@@ -65,7 +64,7 @@ int probe_tcp(int sd, unsigned short dport, struct timespec *ts)
 	thdr.source = htons(sport);
 	thdr.dest = htons(dport);
 	thdr.doff = 5;
-	thdr.check = tcp_csum((unsigned short *) &thdr, sizeof(thdr));
+	thdr.check = chksum_rfc1071((unsigned short *) &thdr, sizeof(thdr));
 
 	msgh.msg_iov = &iov[1]; // only send TCP header
 	msgh.msg_iovlen = 1;

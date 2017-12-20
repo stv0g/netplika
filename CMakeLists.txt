@@ -12,7 +12,6 @@ add_executable(netem main.c
 	utils.c
 	ts.c
 	tc.c
-	tcp.c
 	dist.c
 	dist-maketable.c
 )
