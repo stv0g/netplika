@@ -39,17 +39,17 @@ double * readdoubles(FILE *fp, int *number)
 
 	x = calloc(limit, sizeof(double));
 	if (!x)
-		error(-1, 0, "Alloc");
+		perror("alloc");
 
 	size_t linelen = 0;
-	char *line;
+	char *line = NULL;
 
 	for (i = 0; i < limit; i++) {
 		if (getline(&line, &linelen, fp) > 0) {
 			if (line[0] == '#' || line[0] == '\r' || line[0] == '\n')
 				continue;
 
-			fscanf(fp, "%lf", &x[i]);
+			sscanf(line, "%lf", &x[i]);
 
 			++n;
 		}
@@ -94,7 +94,7 @@ int * makedist(double *x, int limit, double mu, double sigma)
 
 	table = calloc(DISTTABLESIZE, sizeof(int));
 	if (!table) {
-		perror("table alloc");
+		perror("alloc");
 		exit(3);
 	}
 
