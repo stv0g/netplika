@@ -40,7 +40,7 @@ double * readdoubles(FILE *fp, int *number)
 	x = calloc(limit, sizeof(double));
 	if (!x)
 		error(-1, 0, "Alloc");
-	
+
 	size_t linelen = 0;
 	char *line;
 
@@ -48,9 +48,9 @@ double * readdoubles(FILE *fp, int *number)
 		if (getline(&line, &linelen, fp) > 0) {
 			if (line[0] == '#' || line[0] == '\r' || line[0] == '\n')
 				continue;
-			
+
 			fscanf(fp, "%lf", &x[i]);
-		
+
 			++n;
 		}
 		else if (feof(fp))
@@ -202,7 +202,7 @@ main(int argc, char **argv)
 		}
 	} else {
 		fp = stdin;
-	}				
+	}
 	x = readdoubles(fp, &limit);
 	if (limit <= 0) {
 		fprintf(stderr, "Nothing much read!\n");
@@ -213,7 +213,7 @@ main(int argc, char **argv)
 	fprintf(stderr, "%d values, mu %10.4f, sigma %10.4f, rho %10.4f\n",
 		limit, mu, sigma, rho);
 #endif
-	
+
 	table = makedist(x, limit, mu, sigma);
 	free((void *) x);
 	cumulativedist(table, DISTTABLESIZE, &total);
