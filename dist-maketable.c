@@ -176,10 +176,8 @@ void printtable(const short *table, int limit)
 {
 	int i;
 
-	for (i=0 ; i < limit; ++i) {
-		printf("%d%c", table[i],
-		       (i % 8) == 7 ? '\n' : ' ');
-	}
+	for (i = 0 ; i < limit; ++i)
+		printf("%d\n", table[i]);
 }
 
 /*int
