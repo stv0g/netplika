@@ -39,7 +39,7 @@ int rtnl_netem_set_delay_distribution_data(struct rtnl_qdisc *qdisc, short *data
 	struct rtnl_netem *netem;
 
 	if (!(netem = rtnl_tc_data(TC_CAST(qdisc))))
-		BUG();
+		return -1;
 
 	if (len > MAXDIST)
 		return -NLE_INVAL;

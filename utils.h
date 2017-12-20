@@ -9,6 +9,7 @@
 #ifndef _UTILS_H_
 #define _UTILS_H_
 
+#include <stdint.h>
 #include <stdarg.h>
 
 #define MIN(x, y) ((x < y) ? x : y)
@@ -22,7 +23,7 @@ void * alloc(size_t bytes);
  *
  * Source: RFC 1071
  */
-uint16_t chksum_rfc1071(char *buf, size_t count)
+uint16_t chksum_rfc1071(char *buf, size_t count);
 
 /** Safely append a format string to an existing string.
  *

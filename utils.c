@@ -23,8 +23,9 @@ uint16_t chksum_rfc1071(char *buf, size_t count)
 
 	/*  This is the inner loop */
 	while (count > 1)  {
-		sum += * (uint16_t) buf++;
+		sum += * (uint16_t *) buf;
 		count -= 2;
+		buf += 2;
 	}
 
 	/*  Add left-over byte, if any */
