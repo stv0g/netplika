@@ -28,8 +28,6 @@
 #include "tc.h"
 #include "config.h"
 
-#define SCH_NETEM_ATTR_DIST 0x2000
-
 /**
  * Set the delay distribution. Latency/jitter must be set before applying.
  * @arg qdisc Netem qdisc.

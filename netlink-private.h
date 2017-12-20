@@ -12,7 +12,7 @@
 #ifndef _NETLINK_PRIVATE_H_
 #define _NETLINK_PRIVATE_H_
 
-#include <assert.h>
+#define SCH_NETEM_ATTR_DIST 0x2000
 
 struct rtnl_netem_corr
 {
@@ -56,11 +56,4 @@ struct rtnl_netem
 
 void *rtnl_tc_data(struct rtnl_tc *tc);
 
-#define BUG()								\
-	do {								\
-		fprintf(stderr, "BUG at file position %s:%d:%s\n",	\
-			__FILE__, __LINE__, __PRETTY_FUNCTION__);	\
-		assert(0);						\
-	} while (0)
-		
 #endif
