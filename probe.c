@@ -29,6 +29,7 @@
 #include <netlink/addr.h>
 
 #include <linux/ip.h>
+#include <linux/icmp.h>
 
 #include "ts.h"
 #include "timing.h"
@@ -43,6 +44,45 @@ struct phdr {
 	uint8_t protocol;
 	uint16_t length;
 } __attribute__((packed));
+
+#if 0
+#define PAYLOAD_LEN (sizeof(float) * 8);
+
+int probe_icmp(int sd, unsigned short dport, struct timespec *ts)
+{
+	struct timespec ts_req, ts_rep;
+
+	char buf[sizeof(struct iphdr) + sizeof(struct icmphdr) + PAYLOAD_LEN];
+
+	struct iphdr *ihdr    = (struct iphdr *) buf;
+	struct icmphdr *ichdr = (struct icmphdr *) (ihdr + 1);
+	char *payload         = (char *) (ichdr + 1);
+
+	struct msghdr msgh;
+	struct iovec iov = {
+		.iov_base = ichdr,
+		.iov_len = sizeof(struct icmphdr) + PAYLOAD_LEN // ICMP header
+	};
+
+	memset(buf, 0, sizeof(buf));
+
+	ichdr->type = ICMP_ECHO;
+	ichdr->code = 0;
+	ichdr->checksum = 0;
+	ichdr->echo.id = 1;
+	ichdr->echo.sequence = rand();
+
+	ichdr->checksum = chksum_rfc1071(ichdr, sizeof(struct icmphdr));
+
+	msgh.msg_iov = &iov;
+	msgh.msg_iovlen = 1;
+
+	if (ts_sendmsg(sd, &msgh, 0, &ts_req))
+		error(-1, errno, "Failed to send ICMP echo request");
+
+	// TODO
+}
+#endif
 
 int probe_tcp(int sd, unsigned short dport, struct in_addr src, struct in_addr dst, struct timespec *ts)
 {
