@@ -16,6 +16,7 @@ struct config {
 	int interval;
 	int limit;
 	double rate;
+	double scaling;
 	char *dev;
 };
 

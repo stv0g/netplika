@@ -27,6 +27,7 @@ int running = 1;
 struct config cfg = {
 	.limit = 100,
 	.rate = 1,
+	.scaling = 1,
 	.mark = 0xCD,
 	.mask = 0xFFFFFFFF,
 	.dev = "eth0"
@@ -43,7 +44,7 @@ void quit(int sig, siginfo_t *si, void *ptr)
 }
 
 int main(int argc, char *argv[])
-{	
+{
 	if (argc < 2) {
 		printf( "usage: %s CMD [OPTIONS]\n"
 			"  CMD     can be one of:\n\n"
@@ -64,12 +65,13 @@ int main(int argc, char *argv[])
 			"    -r --rate        rate limit used for measurements and updates of network emulation\n"
 			"    -l --limit       how many probes should we sent\n"
 			"    -d --dev         network interface\n"
+			"    -s FACTOR        a scaling factor for the dist subcommands\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
 			" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
 
 		exit(EXIT_FAILURE);
-	}	
+	}
 
 	/* Setup signals */
 	struct sigaction sa_quit = {
@@ -80,13 +82,13 @@ int main(int argc, char *argv[])
 	sigemptyset(&sa_quit.sa_mask);
 	sigaction(SIGTERM, &sa_quit, NULL);
 	sigaction(SIGINT, &sa_quit, NULL);
-	
+
 	/* Initialize PRNG for TCP sequence nos */
 	srand(time(NULL));
-	
+
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:")) != -1) {
+	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:")) != -1) {
 		switch (c) {
 			case 'm':
 				cfg.mark = strtoul(optarg, &endptr, 0);
@@ -103,11 +105,12 @@ int main(int argc, char *argv[])
 			case 'l':
 				cfg.limit = strtoul(optarg, &endptr, 10);
 				goto check;
-				
+			case 's':
+				cfg.scaling = strtof(optarg, &endptr);
+				goto check;
 			case 'd':
 				cfg.dev = strdup(optarg);
 				break;
-				
 			case '?':
 				if (optopt == 'c')
 					error(-1, 0, "Option -%c requires an argument.", optopt);
@@ -115,18 +118,19 @@ int main(int argc, char *argv[])
 					error(-1, 0, "Unknown option '-%c'.", optopt);
 				else
 					error(-1, 0, "Unknown option character '\\x%x'.", optopt);
+
 				exit(EXIT_FAILURE);
 			default:
 				abort();
 		}
-		
+
 		continue;
 check:
 		if (optarg == endptr)
 			error(-1, 0, "Failed to parse parse option argument '-%c %s'", c, optarg);
 	}
-	
-	char *cmd = argv[1];
+
+	char *cmd = argv[optind];
 
 	if      (!strcmp(cmd, "probe"))
 		return probe(argc-optind-1, argv+optind+1);
@@ -136,6 +140,6 @@ check:
 		return dist(argc-optind-1, argv+optind+1);
 	else
 		error(-1, 0, "Unknown command: %s", cmd);
-	
+
 	return 0;
 }

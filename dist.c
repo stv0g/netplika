@@ -56,29 +56,30 @@ int rtnl_netem_set_delay_distribution_data(struct rtnl_qdisc *qdisc, short *data
 	return 0;
 }
 
-static short * dist_make(FILE *fp, double *mu, double *sigma, double *rho)
+static short * dist_make(FILE *fp, double *mu, double *sigma, double *rho, int *cnt)
 {
-	int limit;
-	double *x;
+	double *measurements;
 	int *table;
 	short *inverse;
 	int total;
 
-	x = readdoubles(fp, &limit);
-	if (limit <= 0)
+	measurements = readdoubles(fp, cnt);
+	if (*cnt <= 0)
 		error(-1, 0, "Nothing much read!");
 
-	arraystats(x, limit, mu, sigma, rho);
+	for (int i = 0; i < *cnt; i++)
+		measurements[i] *= cfg.scaling;
 
-	fprintf(stderr, "Read %d values, mu %10.4f, sigma %10.4f, rho %10.4f\n",
-		limit, *mu, *sigma, *rho);
+	arraystats(measurements, *cnt, mu, sigma, rho);
 
-	table = makedist(x, limit, *mu, *sigma);
-	free((void *) x);
-
+	table = makedist(measurements, *cnt, *mu, *sigma);
 	cumulativedist(table, DISTTABLESIZE, &total);
+
 	inverse = inverttable(table, TABLESIZE, DISTTABLESIZE, total);
 	interpolatetable(inverse, TABLESIZE);
+
+	free((void *) measurements);
+	free((void *) table);
 
 	return inverse;
 }
