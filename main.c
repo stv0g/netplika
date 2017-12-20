@@ -25,10 +25,11 @@ int running = 1;
 
 /* Default settings */
 struct config cfg = {
-	.limit = 100,
-	.rate = 1,
+	.limit = 5000,
+	.rate = 1000,
 	.mark = 0xCD,
 	.mask = 0xFFFFFFFF,
+	.warmup = 200,
 	.dev = "eth0"
 };
 
@@ -58,12 +59,13 @@ int main(int argc, char *argv[])
 			"                        recorded measurements. This iCDF can either be used by tc(8) or 'netem table'\n"
 			"\n"
 			"  OPTIONS:\n\n"
-			"    -m --mark N      apply emulation only to packet buffers with mark N\n"
-			"    -M --mask N      an optional mask for the fw mark\n"
-			"    -i --interval N  update the emulation parameters every N seconds\n"
-			"    -r --rate        rate limit used for measurements and updates of network emulation\n"
-			"    -l --limit       how many probes should we sent\n"
-			"    -d --dev         network interface\n"
+			"    -m N      apply emulation only to packet buffers with mark N\n"
+			"    -M N      an optional mask for the fw mark\n"
+			"    -i N      update the emulation parameters every N seconds\n"
+			"    -r R      rate limit used for measurements and updates of network emulation\n"
+			"    -l L      how many probes should we sent\n"
+			"    -w W      number of probe samples to be collected for estimating histogram boundaries\n"
+			"    -d IF     network interface\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
 			" Copyright 2015, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
@@ -86,13 +88,16 @@ int main(int argc, char *argv[])
 	
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:")) != -1) {
+	while ((c = getopt (argc-1, argv+1, "h:m:M:i:l:d:r:w:")) != -1) {
 		switch (c) {
 			case 'm':
 				cfg.mark = strtoul(optarg, &endptr, 0);
 				goto check;
 			case 'M':
 				cfg.mask = strtoul(optarg, &endptr, 0);
+				goto check;
+			case 'w':
+			cfg.warmup = strtoul(optarg, &endptr, 0);
 				goto check;
 			case 'i':
 				cfg.interval = strtoul(optarg, &endptr, 10);

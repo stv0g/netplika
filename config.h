@@ -15,6 +15,7 @@ struct config {
 	int mask;
 	int interval;
 	int limit;
+	int warmup;
 	double rate;
 	char *dev;
 };

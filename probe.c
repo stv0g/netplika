@@ -165,7 +165,7 @@ int probe(int argc, char *argv[])
 		//	hist.total, rtt, hist.lowest, hist.highest, hist_mean(&hist), hist_stddev(&hist));
 
 		/* Warmup: adjust histogram after rough estimation of RTT */
-		if (run == 20) {
+		if (run == cfg.warmup) {
 			double span = hist.highest - hist.lowest;
 			hist_destroy(&hist);
 			hist_create(&hist, MAX(0, hist.lowest - span * 0.1), hist.highest + span * 0.2, span / 20);
