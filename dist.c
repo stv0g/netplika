@@ -119,8 +119,9 @@ static int dist_generate(int argc, char *argv[])
 
 		case FORMAT_VILLAS:
 			printf("netem = {\n");
-			printf("	delay        = %f\n", mu * 1e6);
-			printf("	jitter       = %f\n", sigma * 1e6);
+			printf("	delay        = %d\n", (int) (mu * 1e6));
+			printf("	jitter       = %d\n", (int) (sigma * 1e6));
+			printf("    correlation  = %d\n", (int) (rho * 1e2));
 			printf("	distribution = [ %d", inverse[0]);
 
 			for (int i = 1; i < TABLESIZE; i++)
@@ -130,7 +131,7 @@ static int dist_generate(int argc, char *argv[])
 			printf("	loss         = 0,\n");
 			printf("	duplicate    = 0,\n");
 			printf("	corrupt      = 0\n");
-			printf(" }\n");
+			printf("}\n");
 			break;
 	}
 
@@ -204,7 +205,7 @@ int dist(int argc, char *argv[])
 {
 	char *subcmd = argv[0];
 
-	if (argc != 1)
+	if (argc < 1)
 		error(-1, 0, "Missing sub-command");
 
 	if      (!strcmp(subcmd, "generate"))
