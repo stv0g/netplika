@@ -37,47 +37,72 @@
 #include "utils.h"
 #include "hist.h"
 
-int probe_tcp(int sd, unsigned short dport, struct timespec *ts)
+struct phdr {
+	struct in_addr source;
+	struct in_addr destination;
+	uint8_t reserved;
+	uint8_t protocol;
+	uint16_t length;
+} __attribute__((packed));
+
+int probe_tcp(int sd, unsigned short dport, struct in_addr src, struct in_addr dst, struct timespec *ts)
 {
 	struct timespec ts_syn, ts_ack;
 
-	struct iphdr  ihdr;
-	struct tcphdr thdr;
+	struct phdr   *phdr;
+	struct iphdr  *ihdr;
+	struct tcphdr *thdr;
+
+	char buf[sizeof(struct phdr) + sizeof(struct iphdr) + sizeof(struct tcphdr)];
+
 	struct msghdr msgh;
 	ssize_t len;
 
-	struct iovec iov[2] = {
-		{ .iov_base = &ihdr, .iov_len = sizeof(ihdr) }, // IP header
-		{ .iov_base = &thdr, .iov_len = sizeof(thdr) }  // TCP header
-	};
-
 	/* Sending SYN */
-	memset(&ihdr, 0, sizeof(ihdr));
-	memset(&thdr, 0, sizeof(thdr));
+	memset(buf, 0, sizeof(buf));
 	memset(&msgh, 0, sizeof(msgh));
 
 	/* Randomize sequence number and source port */
 	unsigned int seq = (unsigned) rand();
 	unsigned short sport = (rand() + 1024) & 0xFFFF;
 
-	thdr.syn = 1;
-	thdr.seq = htonl(seq);
-	thdr.source = htons(sport);
-	thdr.dest = htons(dport);
-	thdr.doff = 5;
-	thdr.check = tcp_csum((unsigned short *) &thdr, sizeof(thdr));
+	phdr = (struct phdr *) buf;
+	thdr = (struct tcphdr *) (phdr + 1);
 
-	msgh.msg_iov = &iov[1]; // only send TCP header
+	phdr->source = src;
+	phdr->destination = dst;
+	phdr->protocol = IPPROTO_TCP;
+	phdr->length = sizeof(struct tcphdr);
+
+	thdr->syn = 1;
+	thdr->seq = htonl(seq);
+	thdr->source = htons(sport);
+	thdr->dest = htons(dport);
+	thdr->doff = 5;
+	thdr->check = tcp_csum((unsigned short *) &phdr, sizeof(struct phdr) + sizeof(struct tcphdr));
+
+	struct iovec iov1[] = {
+		{ .iov_base = thdr, .iov_len = sizeof(struct tcphdr) }  // TCP header
+	};
+
+	msgh.msg_iov = iov1; // only send TCP header
 	msgh.msg_iovlen = 1;
 
 	if (ts_sendmsg(sd, &msgh, 0, &ts_syn) < 0)
 		error(-1, errno, "Failed to send SYN packet");
 
 	/* Receiving ACK */
-	memset(&ihdr, 0, sizeof(ihdr));
-	memset(&thdr, 0, sizeof(thdr));
+	memset(buf, 0, sizeof(buf));
 
-	msgh.msg_iov = &iov[0]; // receive IP + TCP header
+	ihdr = (struct iphdr *) buf;
+	thdr = (struct tcphdr *) (ihdr + 1);
+
+	struct iovec iov2[] = {
+		{ .iov_base = ihdr, .iov_len = sizeof(struct iphdr) }, // IP header
+		{ .iov_base = thdr, .iov_len = sizeof(struct tcphdr) }  // TCP header
+	};
+
+	msgh.msg_iov = iov2; // receive IP + TCP header
 	msgh.msg_iovlen = 2;
 
 retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
@@ -88,15 +113,15 @@ retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
 	//	len, thdr.syn, thdr.ack, thdr.rst, ntohl(thdr.seq), ntohl(thdr.ack_seq), ntohs(thdr.source), ntohs(thdr.dest));
 
 	/* Check response */
-	if (thdr.source != htons(dport) || thdr.dest != htons(sport)) {
+	if (thdr->source != htons(dport) || thdr->dest != htons(sport)) {
 		printf("Skipping invalid ports\n");
 		goto retry;
 	}
-	else if (!thdr.rst && !(thdr.ack && thdr.syn)) {
+	else if (!thdr->rst && !(thdr->ack && thdr->syn)) {
 		printf("Skipping invalid flags\n");
 		goto retry;
 	}
-	else if (ntohl(thdr.ack_seq) != seq + 1) {
+	else if (ntohl(thdr->ack_seq) != seq + 1) {
 		printf("Skipping invalid seq\n");
 		goto retry;
 	}
@@ -113,6 +138,7 @@ int probe(int argc, char *argv[])
 	/* Parse address */
 	struct nl_addr *addr;
 	struct sockaddr_in sin;
+	struct in_addr src, dst;
 
 	/* Parse args */
 	if (argc != 2)
@@ -128,6 +154,9 @@ int probe(int argc, char *argv[])
 	socklen_t sinlen = sizeof(sin);
 	if (nl_addr_fill_sockaddr(addr, (struct sockaddr *) &sin, &sinlen))
 		error(-1, 0, "Failed to fill sockaddr");
+
+	dst = sin.sin_addr;
+	inet_aton("134.130.169.31", &src);
 
 	/* Create RAW socket */
 	int sd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
@@ -156,7 +185,7 @@ int probe(int argc, char *argv[])
 		error(-1, errno, "Failed to initilize timer");
 
 	do {
-		probe_tcp(sd, dport, &ts);
+		probe_tcp(sd, dport, src, dst, &ts);
 
 		double rtt = time_to_double(&ts);
 		hist_put(&hist, rtt);
