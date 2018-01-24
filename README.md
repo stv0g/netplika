@@ -1,8 +1,14 @@
-# Netem Tool
+# NetEm Tool
 
-*Note:* This tool is in the alpha stage!
+**Note:** This tool is in the alpha stage!
 
-This tool uses a 3-way TCP handshake to measure the _real_ round-trip-time of a TCP connection.
+This tool can be used to conduct network RTT measurements, convert them into NetEm delay distribution tables, and load these tables into the network emulator.
+
+Two methods for measuring the RTT are supported:
+
+1. Faked 3-way TCP handshake: Uses the delay between initial SYN and ACK packets in the handshake of a TCP connection.
+2. ICMP echo/request packets (as used by `ping`)
+
 The gathered information can be used to configure the Linux network emulation queuing discipline (see [tc-netem(8)](http://man7.org/linux/man-pages/man8/tc-netem.8.html)).
 
 It is possible to directly pass the results of the RTT probes to the Kernel by using a netlink socket and [libnl](http://www.infradead.org/~tgr/libnl/).
