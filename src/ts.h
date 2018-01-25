@@ -1,7 +1,7 @@
 /** Hardware / Kernelspace Timestamping of network packets.
  *
  * @author Steffen Vogel <post@steffenvogel.de>
- * @copyright 2014-2017, Steffen Vogel 
+ * @copyright 2014-2017, Steffen Vogel
  * @license GPLv3
  *********************************************************************************/
 
@@ -12,8 +12,6 @@ ssize_t ts_sendmsg(int sd, const struct msghdr *msgh, int flags, struct timespec
 
 ssize_t ts_recvmsg(int sd,       struct msghdr *msgh, int flags, struct timespec *ts);
 
-int ts_enable_if(const char *dev);
-
-int ts_enable_sd(int sd);
+int ts_enable(int sd);
 
 #endif
