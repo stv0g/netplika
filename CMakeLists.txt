@@ -4,24 +4,25 @@ project(netem C)
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -std=c99")
 
-add_executable(netem main.c
-	probe.c
-	emulate.c
-	timing.c
-	hist.c
-	utils.c
-	ts.c
-	tc.c
-	dist.c
-	dist-maketable.c
+add_executable(netem
+	src/main.c
+	src/probe.c
+	src/emulate.c
+	src/timing.c
+	src/hist.c
+	src/utils.c
+	src/ts.c
+	src/tc.c
+	src/dist.c
+	src/dist-maketable.c
 )
 
 target_link_libraries(netem PUBLIC "-lrt -lnl-3 -lnl-route-3 -lm")
 target_include_directories(netem PUBLIC "/usr/include/libnl3")
 
-add_library(mark mark.c)
+add_library(mark src/mark.c)
 
-install(TARGETS netem mark 
+install(TARGETS netem mark
 	RUNTIME DESTINATION bin
 	LIBRARY DESTINATION lib
 	ARCHIVE DESTINATION lib/static)
