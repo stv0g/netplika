@@ -38,67 +38,128 @@
 #include "hist.h"
 
 struct phdr {
-	struct in_addr source;
-	struct in_addr destination;
+	uint32_t source;
+	uint32_t destination;
 	uint8_t reserved;
 	uint8_t protocol;
 	uint16_t length;
 } __attribute__((packed));
 
-#if 0
-#define PAYLOAD_LEN (sizeof(float) * 8);
+struct icmppl { // ICMP payload
+	uint64_t counter;
+} __attribute__((packed));
 
-int probe_icmp(int sd, unsigned short dport, struct timespec *ts)
+struct timespec past_ts_req[1024];
+static uint64_t counter_tx = 0;
+static uint64_t counter_rx = 0;
+
+int probe_icmp_tx(int sd, struct sockaddr_in *dst)
 {
-	struct timespec ts_req, ts_rep;
+	struct timespec ts_req;
+	ssize_t bytes, wbytes;
 
-	char buf[sizeof(struct iphdr) + sizeof(struct icmphdr) + PAYLOAD_LEN];
-
-	struct iphdr *ihdr    = (struct iphdr *) buf;
-	struct icmphdr *ichdr = (struct icmphdr *) (ihdr + 1);
-	char *payload         = (char *) (ichdr + 1);
+	bytes = sizeof(struct icmphdr) + sizeof(struct icmppl);
 
 	struct msghdr msgh;
-	struct iovec iov = {
-		.iov_base = ichdr,
-		.iov_len = sizeof(struct icmphdr) + PAYLOAD_LEN // ICMP header
-	};
+	struct iovec iov;
+	char buf[bytes];
 
 	memset(buf, 0, sizeof(buf));
+	memset(&msgh, 0, sizeof(msgh));
+	memset(&iov, 0, sizeof(iov));
+
+	struct icmphdr *ichdr = (struct icmphdr *) buf;
+	struct icmppl *icpl = (struct icmppl *) (ichdr + 1);
 
 	ichdr->type = ICMP_ECHO;
 	ichdr->code = 0;
 	ichdr->checksum = 0;
-	ichdr->echo.id = 1;
-	ichdr->echo.sequence = rand();
+	ichdr->un.echo.id = 1;
+	ichdr->un.echo.sequence = rand();
 
-	ichdr->checksum = chksum_rfc1071(ichdr, sizeof(struct icmphdr));
+	icpl->counter = counter_tx++;
+
+	ichdr->checksum = chksum_rfc1071((char *) ichdr, bytes);
+
+	iov.iov_base = ichdr;
+	iov.iov_len = bytes;
+
+	msgh.msg_name = dst;
+	msgh.msg_namelen = sizeof(struct sockaddr_in);
+	msgh.msg_iov = &iov;
+	msgh.msg_iovlen = 1;
+
+	wbytes = ts_sendmsg(sd, &msgh, 0, &ts_req);
+	if (bytes < 0)
+		error(-1, errno, "Failed to send ICMP echo request");
+
+	if (wbytes != bytes)
+		fprintf(stderr, "wbytes(%zd) != bytes(%zd)\n", wbytes, bytes);
+
+	past_ts_req[icpl->counter % 1024] = ts_req;
+
+	return 0;
+}
+
+int probe_icmp_rx(int sd)
+{
+	struct timespec ts_rep;
+	ssize_t bytes, rbytes;
+
+	bytes = sizeof(struct iphdr) + sizeof(struct icmphdr) + sizeof(struct icmppl);
+
+	struct msghdr msgh;
+	struct iovec iov;
+	char buf[bytes];
+
+	memset(buf, 0, sizeof(buf));
+	memset(&msgh, 0, sizeof(msgh));
+	memset(&iov, 0, sizeof(iov));
+
+	struct iphdr *ihdr = (struct iphdr *) buf;
+	struct icmphdr *ichdr = (struct icmphdr *) (ihdr + 1);
+	struct icmppl *icpl = (struct icmppl *) (ichdr + 1);
+
+	iov.iov_base = ihdr;
+	iov.iov_len = bytes;
 
 	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 
-	if (ts_sendmsg(sd, &msgh, 0, &ts_req))
-		error(-1, errno, "Failed to send ICMP echo request");
+	rbytes = ts_recvmsg(sd, &msgh, MSG_DONTWAIT, &ts_rep);
+	if (rbytes < 0) {
+		if (errno == EAGAIN)
+			return 0;
+		else
+			error(-1, errno, "Failed to receive ICMP echo reply");
+	}
 
-	// TODO
+	if (rbytes != bytes)
+		fprintf(stderr, "rbytes(%zd) != bytes(%zd)\n", rbytes, bytes);
+
+	if (counter_tx - icpl->counter < 1024)
+		printf("%zd,%zd,%.10e\n", counter_rx, icpl->counter, time_delta(&past_ts_req[icpl->counter % 1024], &ts_rep));
+
+	counter_rx++;
+
+	return 0;
 }
-#endif
 
-int probe_tcp(int sd, unsigned short dport, struct in_addr src, struct in_addr dst, struct timespec *ts)
+int probe_tcp(int sd, struct sockaddr_in *src, struct sockaddr_in *dst, struct timespec *ts)
 {
 	struct timespec ts_syn, ts_ack;
-
+	ssize_t bytes, rbytes, wbytes;
 	struct phdr   *phdr;
-	struct iphdr  *ihdr;
 	struct tcphdr *thdr;
 
-	char buf[sizeof(struct phdr) + sizeof(struct iphdr) + sizeof(struct tcphdr)];
+	bytes = sizeof(struct phdr) + sizeof(struct tcphdr);
+	char buf[bytes];
 
 	struct msghdr msgh;
-	ssize_t len;
+	struct iovec iov;
 
-	/* Sending SYN */
 	memset(buf, 0, sizeof(buf));
+	memset(&iov, 0, sizeof(iov));
 	memset(&msgh, 0, sizeof(msgh));
 
 	/* Randomize sequence number and source port */
@@ -108,53 +169,48 @@ int probe_tcp(int sd, unsigned short dport, struct in_addr src, struct in_addr d
 	phdr = (struct phdr *) buf;
 	thdr = (struct tcphdr *) (phdr + 1);
 
-	phdr->source = src;
-	phdr->destination = dst;
+	phdr->source = src->sin_addr.s_addr;
+	phdr->destination = dst->sin_addr.s_addr;
 	phdr->protocol = IPPROTO_TCP;
-	phdr->length = sizeof(struct tcphdr);
+	phdr->length = htons(sizeof(struct tcphdr));
 
-	thdr->syn = 1;
-	thdr->seq = htonl(seq);
 	thdr->source = htons(sport);
-	thdr->dest = htons(dport);
+	thdr->dest = dst->sin_port;
+	thdr->syn = 1;
+	thdr->ack = 0;
+	thdr->seq = htonl(seq);
 	thdr->doff = 5;
-	thdr->check = chksum_rfc1071((unsigned short *) &phdr, sizeof(struct phdr) + sizeof(struct tcphdr));
+	thdr->check = 0;
 
-	struct iovec iov1[] = {
-		{ .iov_base = thdr, .iov_len = sizeof(struct tcphdr) }  // TCP header
-	};
+	thdr->check = chksum_rfc1071((char *) phdr, bytes);
 
-	msgh.msg_iov = iov1; // only send TCP header
+	hexdump(phdr, bytes);
+
+	iov.iov_base = thdr;
+	iov.iov_len = sizeof(struct tcphdr);
+
+	msgh.msg_name = dst;
+	msgh.msg_namelen = sizeof(struct sockaddr_in);
+	msgh.msg_iov = &iov;
 	msgh.msg_iovlen = 1;
 
-	if (ts_sendmsg(sd, &msgh, 0, &ts_syn) < 0)
+	wbytes = ts_sendmsg(sd, &msgh, 0, &ts_syn);
+	if (wbytes < 0)
 		error(-1, errno, "Failed to send SYN packet");
 
-	/* Receiving ACK */
-	memset(buf, 0, sizeof(buf));
+	msgh.msg_name = NULL;
 
-	ihdr = (struct iphdr *) buf;
-	thdr = (struct tcphdr *) (ihdr + 1);
-
-	struct iovec iov2[] = {
-		{ .iov_base = ihdr, .iov_len = sizeof(struct iphdr) }, // IP header
-		{ .iov_base = thdr, .iov_len = sizeof(struct tcphdr) }  // TCP header
-	};
-
-	msgh.msg_iov = iov2; // receive IP + TCP header
-	msgh.msg_iovlen = 2;
-
-retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
-	if (len < 0)
+retry:	rbytes = ts_recvmsg(sd, &msgh, 0, &ts_ack);
+	if (rbytes < 0)
 		error(-1, 0, "Failed to receive ACK / RST packet");
 
-	//printf("TCP: len=%u, syn=%u, ack=%u, rst=%u, seq=%u, ack_seq=%u, src=%u, dst=%u\n",
-	//	len, thdr.syn, thdr.ack, thdr.rst, ntohl(thdr.seq), ntohl(thdr.ack_seq), ntohs(thdr.source), ntohs(thdr.dest));
+	printf("TCP: rbytes=%zd, syn=%u, ack=%u, rst=%u, seq=%u, ack_seq=%u, src=%u, dst=%u\n",
+		rbytes, thdr->syn, thdr->ack, thdr->rst, ntohl(thdr->seq), ntohl(thdr->ack_seq), ntohs(thdr->source), ntohs(thdr->dest));
 
 	/* Check response */
-	if (thdr->source != htons(dport) || thdr->dest != htons(sport)) {
-		printf("Skipping invalid ports\n");
-		goto retry;
+	if (thdr->source != dst->sin_port || thdr->dest != sport) {
+//		printf("Skipping invalid ports\n");
+//		goto retry;
 	}
 	else if (!thdr->rst && !(thdr->ack && thdr->syn)) {
 		printf("Skipping invalid flags\n");
@@ -172,95 +228,104 @@ retry:	len = ts_recvmsg(sd, &msgh, 0, &ts_ack);
 
 int probe(int argc, char *argv[])
 {
-	int run = 0, tfd;
+	enum probe_mode {
+		PROBE_ICMP,
+		PROBE_TCP
+	} mode = PROBE_ICMP;
+
+	int run = 0, tfd, sd, ret, prot;
+	socklen_t sinlen;
+
+	if (mode == PROBE_TCP) {
+		prot = IPPROTO_TCP;
+	}
+	else if (mode == PROBE_ICMP) {
+		prot = IPPROTO_ICMP;
+	}
+	else {
+		error(-1, 0, "Invalid probe mode");
+	}
 
 	/* Parse address */
 	struct nl_addr *addr;
-	struct sockaddr_in sin;
-	struct in_addr src, dst;
+	struct sockaddr_in src, dst;
 
 	/* Parse args */
 	if (argc != 2)
-		error(-1, 0, "usage: netem probe IP PORT");
+		error(-1, 0, "usage: netem probe IP [PORT]");
 
-	if (nl_addr_parse(argv[0], AF_UNSPEC, &addr))
+	/* Destination */
+	ret = nl_addr_parse(argv[0], AF_INET, &addr);
+	if (ret)
 		error(-1, 0, "Failed to parse address: %s", argv[0]);
 
-	unsigned short dport = atoi(argv[1]);
-	if (!dport)
-		error(-1, 0, "Failed to parse port: %s", argv[1]);
-
-	socklen_t sinlen = sizeof(sin);
-	if (nl_addr_fill_sockaddr(addr, (struct sockaddr *) &sin, &sinlen))
+	sinlen = sizeof(src);
+	if (nl_addr_fill_sockaddr(addr, (struct sockaddr *) &dst, &sinlen))
 		error(-1, 0, "Failed to fill sockaddr");
 
-	dst = sin.sin_addr;
-	inet_aton("134.130.169.31", &src);
+	/* Source */
+	ret = nl_addr_parse("10.211.55.6", AF_INET, &addr);
+	if (ret)
+		error(-1, 0, "Failed to parse address: %s", argv[0]);
+
+	sinlen = sizeof(dst);
+	if (nl_addr_fill_sockaddr(addr, (struct sockaddr *) &src, &sinlen))
+		error(-1, 0, "Failed to fill sockaddr");
+
+	int port = atoi(argv[1]);
+	if (!port)
+		error(-1, 0, "Failed to parse port: %s", argv[1]);
+
+	dst.sin_port = htons(port);
 
 	/* Create RAW socket */
-	int sd = socket(AF_INET, SOCK_RAW, IPPROTO_TCP);
+	sd = socket(AF_INET, SOCK_RAW, prot);
 	if (sd < 0)
 		error(-1, errno, "Failed to create socket");
 
-	/* Bind socket to destination */
-	if (connect(sd, (struct sockaddr *) &sin, sizeof(sin)))
-		error(-1, 0, "Failed to connect socket");
-
 	/* Enable Kernel TS support */
-	if (ts_enable_if("lo"))
-		fprintf(stderr, "Failed to enable timestamping: %s\n", strerror(errno));
-	if (ts_enable_sd(sd))
+	ret = ts_enable(sd);
+	if (ret)
 		fprintf(stderr, "Failed to set SO_TIMESTAMPING: %s\n", strerror(errno));
 
 	/* Prepare payload */
 	struct timespec ts;
 
 	/* Prepare statistics */
-	struct hist hist;
-	hist_create(&hist, 0, 0, 1);
 
 	/* Start timer */
 	if ((tfd = timerfd_init(cfg.rate)) < 0)
 		error(-1, errno, "Failed to initilize timer");
 
-	do {
-		probe_tcp(sd, dport, src, dst, &ts);
+	if (mode == PROBE_ICMP) {
+		do {
+			if (!cfg.limit || run < cfg.limit)
+				probe_icmp_tx(sd, &dst);
 
-		double rtt = time_to_double(&ts);
-		hist_put(&hist, rtt);
+			probe_icmp_rx(sd);
 
-		//printf("n=%u, rtt=%f, min=%f, max=%f, avg=%f, stddev=%f\n",
-		//	hist.total, rtt, hist.lowest, hist.highest, hist_mean(&hist), hist_stddev(&hist));
+			int steps = timerfd_wait(tfd);
+			if (steps > 1)
+				fprintf(stderr, "Missed steps: %d\n", steps - 1);
 
-		/* Warmup: adjust histogram after rough estimation of RTT */
-		if (run == cfg.warmup) {
-			double span = hist.highest - hist.lowest;
-			hist_destroy(&hist);
-			hist_create(&hist, MAX(0, hist.lowest - span * 0.1), hist.highest + span * 0.2, span / 20);
-			fprintf(stderr, "Created new histogram: high=%f, low=%f, buckets=%u\n",
-				hist.high, hist.low, hist.length);
+			run += steps;
+		} while (cfg.limit && run < 2*cfg.limit);
+	}
+	else if (mode == PROBE_TCP) {
+		do {
+			probe_tcp(sd, &src, &dst, &ts);
 
-			/* Print header for output */
-			time_t t = time(NULL);
-			struct tm *tm = localtime(&t);
-			char addrs[32], date[32];
+			double rtt = time_to_double(&ts);
 
-			nl_addr2str(addr, addrs, sizeof(addrs));
-			strftime(date, sizeof(date), "%a, %d %b %Y %T %z", tm);
+			printf("%d,%.10f\n", run, rtt);
 
-			printf("# Probing: %s on port %u\n", addrs, dport);
-			printf("# Started: %s\n", date);
-			printf("# RTT  mu sigma (units in S)\n");
-		}
+			int steps = timerfd_wait(tfd);
+			if (steps > 1)
+				fprintf(stderr, "Missed steps: %d\n", steps - 1);
 
-		printf("%f %f %f\n", rtt, hist_mean(&hist), hist_stddev(&hist));
-		fflush(stdout);
-
-		run += timerfd_wait(tfd);
-	} while (cfg.limit && run < cfg.limit);
-
-	hist_print(&hist, stderr);
-	hist_destroy(&hist);
+			run += steps;
+		} while (cfg.limit && run < cfg.limit);
+	}
 
 	return 0;
 }
