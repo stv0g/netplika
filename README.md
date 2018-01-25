@@ -1,8 +1,8 @@
-# NetEm Tool
+# NetPlika - The network replikator
 
 **Note:** This tool is in the alpha stage!
 
-This tool can be used to conduct network RTT measurements, convert them into NetEm delay distribution tables, and load these tables into the network emulator.
+This tool can be used to conduct network RTT measurements, convert them into [NetEm](https://wiki.linuxfoundation.org/networking/netem#how-to-reorder-packets-based-on-jitter) delay distribution tables, and load these tables into the network emulator.
 
 Two methods for measuring the RTT are supported:
 
