@@ -58,7 +58,7 @@ int probe_icmp_tx(int sd, struct sockaddr_in *dst)
 	struct timespec ts_req;
 	ssize_t bytes, wbytes;
 
-	bytes = sizeof(struct icmphdr) + sizeof(struct icmppl);
+	bytes = sizeof(struct icmphdr) + sizeof(struct icmppl) + cfg.probe.payload;
 
 	struct msghdr msgh;
 	struct iovec iov;
@@ -129,7 +129,7 @@ int probe_icmp_rx(int sd)
 	rbytes = ts_recvmsg(sd, &msgh, MSG_DONTWAIT, &ts_rep);
 	if (rbytes < 0) {
 		if (errno == EAGAIN)
-			return 0;
+			return 1;
 		else
 			error(-1, errno, "Failed to receive ICMP echo reply");
 	}
@@ -228,18 +228,13 @@ retry:	rbytes = ts_recvmsg(sd, &msgh, 0, &ts_ack);
 
 int probe(int argc, char *argv[])
 {
-	enum probe_mode {
-		PROBE_ICMP,
-		PROBE_TCP
-	} mode = PROBE_ICMP;
-
 	int run = 0, tfd, sd, ret, prot;
 	socklen_t sinlen;
 
-	if (mode == PROBE_TCP) {
+	if (cfg.probe.mode == PROBE_TCP) {
 		prot = IPPROTO_TCP;
 	}
-	else if (mode == PROBE_ICMP) {
+	else if (cfg.probe.mode == PROBE_ICMP) {
 		prot = IPPROTO_ICMP;
 	}
 	else {
@@ -294,24 +289,22 @@ int probe(int argc, char *argv[])
 	/* Prepare statistics */
 
 	/* Start timer */
-	if ((tfd = timerfd_init(cfg.rate)) < 0)
+	if ((tfd = timerfd_init(cfg.probe.rate)) < 0)
 		error(-1, errno, "Failed to initilize timer");
 
-	if (mode == PROBE_ICMP) {
+	if (cfg.probe.mode == PROBE_ICMP) {
 		do {
-			if (!cfg.limit || run < cfg.limit)
+			if (!cfg.probe.limit || run < cfg.probe.limit)
 				probe_icmp_tx(sd, &dst);
 
-			probe_icmp_rx(sd);
+			do {
+				ret = probe_icmp_rx(sd);
+			} while (!ret);
 
-			int steps = timerfd_wait(tfd);
-			if (steps > 1)
-				fprintf(stderr, "Missed steps: %d\n", steps - 1);
-
-			run += steps;
-		} while (cfg.limit && run < 2*cfg.limit);
+			run += timerfd_wait(tfd);
+		} while (cfg.probe.limit && run < 2*cfg.probe.limit);
 	}
-	else if (mode == PROBE_TCP) {
+	else if (cfg.probe.mode == PROBE_TCP) {
 		do {
 			probe_tcp(sd, &src, &dst, &ts);
 
@@ -319,12 +312,8 @@ int probe(int argc, char *argv[])
 
 			printf("%d,%.10f\n", run, rtt);
 
-			int steps = timerfd_wait(tfd);
-			if (steps > 1)
-				fprintf(stderr, "Missed steps: %d\n", steps - 1);
-
-			run += steps;
-		} while (cfg.limit && run < cfg.limit);
+			run += timerfd_wait(tfd);
+		} while (cfg.probe.limit && run < cfg.probe.limit);
 	}
 
 	return 0;

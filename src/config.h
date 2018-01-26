@@ -11,18 +11,31 @@
 #define VERSION		"0.1"
 
 struct config {
-	int mark;
-	int mask;
-	int interval;
-	int limit;
-	int warmup;
-	double rate;
-	double scaling;
-	char *dev;
-	enum {
-		FORMAT_TC,
-		FORMAT_VILLAS
-	} format;
+	struct {
+		enum {
+			PROBE_ICMP,
+			PROBE_TCP
+		} mode;
+		int payload;
+		int limit;
+		double rate;
+		int warmup;
+	} probe;
+
+	struct {
+		enum {
+			FORMAT_TC,
+			FORMAT_VILLAS
+		} format;
+		double scaling;
+	} dist;
+
+	struct {
+		int mark;
+		int mask;
+		char *dev;
+		int interval;
+	} emulate;
 };
 
 /* Declared in main.c */

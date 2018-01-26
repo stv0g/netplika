@@ -68,7 +68,7 @@ static short * dist_make(FILE *fp, double *mu, double *sigma, double *rho, int *
 		error(-1, 0, "Nothing much read!");
 
 	for (int i = 0; i < *cnt; i++)
-		measurements[i] *= cfg.scaling;
+		measurements[i] *= cfg.dist.scaling;
 
 	arraystats(measurements, *cnt, mu, sigma, rho);
 
@@ -112,7 +112,7 @@ static int dist_generate(int argc, char *argv[])
     printf("#  Generated %s, by %s on %s\n", date, user, host);
 	printf("#\n");
 
-	switch (cfg.format) {
+	switch (cfg.dist.format) {
 		case FORMAT_TC:
 			printtable(inverse, TABLESIZE);
 			break;
@@ -169,9 +169,9 @@ static int dist_load(int argc, char *argv[])
 	nl_connect(sock, NETLINK_ROUTE);
 
 	/* Get interface */
-	link = tc_get_link(sock, cfg.dev);
+	link = tc_get_link(sock, cfg.emulate.dev);
 	if (!link)
-		error(-1, 0, "Interface does not exist: %s", cfg.dev);
+		error(-1, 0, "Interface does not exist: %s", cfg.emulate.dev);
 
 	/* Reset TC subsystem */
 	ret = tc_reset(sock, link);
@@ -182,7 +182,7 @@ static int dist_load(int argc, char *argv[])
 	if ((ret = tc_prio(sock, link, &qdisc_prio)))
 		error(-1, 0, "Failed to setup TC: prio qdisc: %s", nl_geterror(ret));
 
-	if ((ret = tc_classifier(sock, link, &cls_fw, cfg.mark, cfg.mask)))
+	if ((ret = tc_classifier(sock, link, &cls_fw, cfg.emulate.mark, cfg.emulate.mask)))
 		error(-1, 0, "Failed to setup TC: fw filter: %s", nl_geterror(ret));
 
 	if ((ret = tc_netem(sock, link, &qdisc_netem)))

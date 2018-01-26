@@ -25,14 +25,21 @@ int running = 1;
 
 /* Default settings */
 struct config cfg = {
-	.limit = 100,
-	.rate = 1,
-	.scaling = 1,
-	.mark = 0xCD,
-	.mask = 0xFFFFFFFF,
-	.warmup = 200,
-	.dev = "eth0",
-	.format = FORMAT_TC
+	.probe = {
+		.payload = 0,
+		.rate = 1,
+		.warmup = 200,
+		.limit = 100
+	},
+	.dist = {
+		.format = FORMAT_TC,
+		.scaling = 1
+	},
+	.emulate = {
+		.mark = 0xCD,
+		.mask = 0xFFFFFFFF,
+		.dev = "eth0"
+	}
 };
 
 int probe(int argc, char *argv[]);
@@ -70,6 +77,7 @@ int main(int argc, char *argv[])
 			"    -d IF      network interface\n"
 			"    -s FACTOR  a scaling factor for the dist subcommands\n"
 			"    -f FMT     the output format of the distribution tables\n"
+			"    -p SZ      payload size for ICMP messages\n"
 			"\n"
 			"netem util %s (built on %s %s)\n"
 			" Copyright 2017, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
@@ -92,37 +100,40 @@ int main(int argc, char *argv[])
 
 	/* Parse Arguments */
 	char c, *endptr;
-	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:f:w:")) != -1) {
+	while ((c = getopt(argc, argv, "h:m:M:i:l:d:r:s:f:w:p:")) != -1) {
 		switch (c) {
 			case 'm':
-				cfg.mark = strtoul(optarg, &endptr, 0);
+				cfg.emulate.mark = strtoul(optarg, &endptr, 0);
 				goto check;
 			case 'M':
-				cfg.mask = strtoul(optarg, &endptr, 0);
+				cfg.emulate.mask = strtoul(optarg, &endptr, 0);
 				goto check;
 			case 'w':
-			cfg.warmup = strtoul(optarg, &endptr, 0);
+				cfg.probe.warmup = strtoul(optarg, &endptr, 0);
 				goto check;
 			case 'i':
-				cfg.interval = strtoul(optarg, &endptr, 10);
+				cfg.emulate.interval = strtoul(optarg, &endptr, 10);
 				goto check;
 			case 'r':
-				cfg.rate = strtof(optarg, &endptr);
+				cfg.probe.rate = strtof(optarg, &endptr);
 				goto check;
 			case 'l':
-				cfg.limit = strtoul(optarg, &endptr, 10);
+				cfg.probe.limit = strtoul(optarg, &endptr, 10);
 				goto check;
 			case 'd':
-				cfg.dev = strdup(optarg);
+				cfg.emulate.dev = strdup(optarg);
 				break;
 			case 's':
-				cfg.scaling = strtof(optarg, &endptr);
+				cfg.dist.scaling = strtof(optarg, &endptr);
+				goto check;
+			case 'p':
+				cfg.probe.payload = strtoul(optarg, &endptr, 10);
 				goto check;
 			case 'f':
 				if (strcmp(optarg, "villas") == 0)
-					cfg.format = FORMAT_VILLAS;
+					cfg.dist.format = FORMAT_VILLAS;
 				else if (strcmp(optarg, "tc") == 0)
-					cfg.format = FORMAT_TC;
+					cfg.dist.format = FORMAT_TC;
 				else {
 					error(-1, 0, "Unknown format: %s.", optarg);
 					exit(EXIT_FAILURE);
