@@ -79,8 +79,8 @@ int main(int argc, char *argv[])
 			"    -f FMT     the output format of the distribution tables\n"
 			"    -p SZ      payload size for ICMP messages\n"
 			"\n"
-			"netem util %s (built on %s %s)\n"
-			" Copyright 2017, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
+			"NetPlika %s (built on %s %s)\n"
+			" Copyright 2016-2018, Steffen Vogel <post@steffenvogel.de>\n", argv[0], VERSION, __DATE__, __TIME__);
 
 		exit(EXIT_FAILURE);
 	}
